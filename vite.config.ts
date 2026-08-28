@@ -34,7 +34,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: false,
       includeAssets: [
-        'favicon.svg',
+        'favicon.png',
         'og-image.png',
         'pwa-192.png',
         'pwa-512.png',
