@@ -1,9 +1,12 @@
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mkdir } from 'node:fs/promises'
 import sharp from 'sharp'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const publicDir = join(root, 'public')
+const assetsDir = join(root, 'src', 'assets')
+await mkdir(assetsDir, { recursive: true })
 
 const icon = sharp(
   join(publicDir, 'qisas-al-anbiya-calligraphy-book.png'),
@@ -12,6 +15,7 @@ const icon = sharp(
 await icon.clone().resize(64, 64).png().toFile(join(publicDir, 'favicon.png'))
 await icon.clone().resize(192, 192).png().toFile(join(publicDir, 'pwa-192.png'))
 await icon.clone().resize(512, 512).png().toFile(join(publicDir, 'pwa-512.png'))
+await icon.clone().resize(512, 512).png().toFile(join(assetsDir, 'app-icon.png'))
 
 for (const size of [192, 512]) {
   await icon

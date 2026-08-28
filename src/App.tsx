@@ -51,8 +51,10 @@ import {
   downloadBlob,
   formatShareText,
   getCachedAppIconBlob,
+  isAppIconReady,
   prefetchAppIconBlob,
   shareCachedAppIcon,
+  subscribeAppIconReady,
   shareImageFile,
   shareImageWithoutSecureContext,
   type ShareResult,
@@ -130,6 +132,7 @@ function App() {
   )
   const [learnerName, setLearnerName] = useState(storedLearnerName)
   const [shareNotice, setShareNotice] = useState<string | null>(null)
+  const [appIconReady, setAppIconReady] = useState(isAppIconReady)
   const [isInstalled, setIsInstalled] = useState(() => isStandaloneApp())
   const text = translations[language]
 
@@ -191,6 +194,7 @@ function App() {
 
   useEffect(() => {
     prefetchAppIconBlob()
+    return subscribeAppIconReady(() => setAppIconReady(true))
   }, [])
 
   useEffect(() => {
@@ -375,6 +379,7 @@ function App() {
     theme,
     isInstalled,
     learnerName,
+    appIconReady,
     playlists: library.playlists,
     onToggleLanguage: toggleLanguage,
     onToggleTheme: toggleTheme,
@@ -1007,6 +1012,7 @@ function AppMenuButton({
     theme: Theme
     isInstalled: boolean
     learnerName: string
+    appIconReady: boolean
     playlists: Playlist[]
     onToggleLanguage: () => void
     onToggleTheme: () => void
@@ -1113,6 +1119,7 @@ function AppMenu({
   theme,
   isInstalled,
   learnerName,
+  appIconReady,
   playlists,
   onToggleLanguage,
   onToggleTheme,
@@ -1127,6 +1134,7 @@ function AppMenu({
   theme: Theme
   isInstalled: boolean
   learnerName: string
+  appIconReady: boolean
   playlists: Playlist[]
   onToggleLanguage: () => void
   onToggleTheme: () => void
@@ -1258,12 +1266,13 @@ function AppMenu({
             type="button"
             className="menu-item"
             role="menuitem"
+            disabled={!appIconReady}
             onClick={() => {
               onShareApp()
               setOpen(false)
             }}
           >
-            {text.shareApp}
+            {!appIconReady ? text.shareIconLoading : text.shareApp}
           </button>
 
           <div className="menu-divider" role="separator" />

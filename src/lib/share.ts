@@ -1,3 +1,5 @@
+import appIconBundledUrl from '../assets/app-icon.png?url'
+
 export function appUrl(): string {
   if (typeof window === 'undefined') return ''
   return window.location.origin + window.location.pathname
@@ -47,23 +49,103 @@ export function formatShareText(text: string, url?: string): string {
   return `${text}\n\n${link}`
 }
 
-const APP_ICON_PATH = '/pwa-512.png'
 export const APP_ICON_FILENAME = 'stories-of-the-prophets-icon.png'
 
 let cachedAppIconBlob: Blob | null = null
 let appIconBlobPromise: Promise<Blob> | null = null
+const appIconReadyListeners = new Set<() => void>()
+
+function notifyAppIconReady(): void {
+  for (const listener of appIconReadyListeners) listener()
+}
+
+export function isAppIconReady(): boolean {
+  return cachedAppIconBlob !== null
+}
+
+export function subscribeAppIconReady(listener: () => void): () => void {
+  appIconReadyListeners.add(listener)
+  if (cachedAppIconBlob) listener()
+  return () => appIconReadyListeners.delete(listener)
+}
+
+function resolveAppIconUrl(): string {
+  if (typeof window === 'undefined') return appIconBundledUrl
+  return new URL(appIconBundledUrl, window.location.origin).href
+}
+
+function isPngBytes(bytes: Uint8Array): boolean {
+  return (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  )
+}
+
+async function blobToShareablePng(source: Blob): Promise<Blob> {
+  const header = new Uint8Array(await source.slice(0, 8).arrayBuffer())
+  if (!isPngBytes(header)) {
+    throw new Error('Invalid app icon')
+  }
+
+  if (typeof createImageBitmap === 'function') {
+    const bitmap = await createImageBitmap(source)
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = bitmap.width
+      canvas.height = bitmap.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('canvas unavailable')
+      ctx.drawImage(bitmap, 0, 0)
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (value) => (value ? resolve(value) : reject(new Error('toBlob failed'))),
+          'image/png',
+        )
+      })
+      return blob
+    } finally {
+      bitmap.close()
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('canvas unavailable'))
+        return
+      }
+      ctx.drawImage(img, 0, 0)
+      canvas.toBlob(
+        (value) => (value ? resolve(value) : reject(new Error('toBlob failed'))),
+        'image/png',
+      )
+    }
+    img.onerror = () => reject(new Error('image decode failed'))
+    img.src = URL.createObjectURL(source)
+  })
+}
+
+async function loadShareableAppIconBlob(): Promise<Blob> {
+  const response = await fetch(resolveAppIconUrl(), { cache: 'force-cache' })
+  if (!response.ok) throw new Error('Failed to load app icon')
+  return blobToShareablePng(await response.blob())
+}
 
 export function prefetchAppIconBlob(): void {
   if (cachedAppIconBlob || appIconBlobPromise) return
-  appIconBlobPromise = fetch(APP_ICON_PATH)
-    .then((response) => {
-      if (!response.ok) throw new Error('Failed to load app icon')
-      return response.blob()
-    })
+  appIconBlobPromise = loadShareableAppIconBlob()
     .then((blob) => {
-      cachedAppIconBlob =
-        blob.type === 'image/png' ? blob : blob.slice(0, blob.size, 'image/png')
-      return cachedAppIconBlob
+      cachedAppIconBlob = blob
+      notifyAppIconReady()
+      return blob
     })
     .catch(() => {
       appIconBlobPromise = null
@@ -198,11 +280,12 @@ export async function shareImageFile(options: {
       lastModified: Date.now(),
     })
 
+    // File-only payloads first — some apps (e.g. WhatsApp) drop the image when text is included.
     const payloads: ShareData[] = [
-      { files: [file], text: shareText },
-      { files: [file], title: options.title, text: shareText },
-      { files: [file], title: options.title },
       { files: [file] },
+      { files: [file], title: options.title },
+      { files: [file], title: options.title, text: shareText },
+      { files: [file], text: shareText },
     ]
 
     for (const payload of payloads) {
