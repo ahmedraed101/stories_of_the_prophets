@@ -77,6 +77,22 @@ export const translations = {
     certificateView: 'عرض الشهادة',
     certificateNextSeries: 'تابع السيرة النبوية',
     certificateAllDone: 'أكملتَ جميع المجموعات الأساسية — جزاك الله خيراً!',
+    achievementsTab: 'الإنجازات',
+    achievementsTitle: 'إنجازاتك',
+    achievementsSubtitle: 'شهادات الإتمام التي يمكنك مشاركتها مع الآخرين.',
+    achievementsEmpty:
+      'أكمل مجموعة كاملة من الحلقات لتحصل على شهادة إنجاز يمكنك مشاركتها هنا.',
+    certificateGrandTitle: 'إنجاز كامل',
+    certificateGrandHeading: 'أتممتَ الرحلة كاملة',
+    certificateGrandBody:
+      'أكملتَ مشاهدة قصص الأنبياء والسيرة النبوية — بارك الله فيك على هذا الإنجاز.',
+    certificateGrandShareMessage:
+      'أتممتُ مشاهدة قصص الأنبياء والسيرة النبوية كاملة عبر التطبيق — رحلة تعلّم بلا تشتيت. 🏆🌙',
+    achievementEarned: 'مكتمل',
+    achievementShare: 'مشاركة',
+    achievementView: 'عرض',
+    shareImageDownloaded: 'تم حفظ صورة الشهادة — يمكنك مشاركتها من المعرض',
+    certificateSharing: 'جاري تجهيز الصورة…',
   },
   en: {
     brandName: 'Stories of the Prophets',
@@ -155,6 +171,23 @@ export const translations = {
     certificateNextSeries: 'Continue with the Prophetic Biography',
     certificateAllDone:
       'You completed all core collections — may Allah reward you!',
+    achievementsTab: 'Achievements',
+    achievementsTitle: 'Your achievements',
+    achievementsSubtitle: 'Completion certificates you can share with others.',
+    achievementsEmpty:
+      'Finish a full collection to earn a shareable certificate here.',
+    certificateGrandTitle: 'Full journey',
+    certificateGrandHeading: 'You completed the full journey',
+    certificateGrandBody:
+      'You finished Stories of the Prophets and the Prophetic Biography — well done.',
+    certificateGrandShareMessage:
+      'I completed the full Stories of the Prophets journey in the app — focused learning without distractions. 🏆🌙',
+    achievementEarned: 'Complete',
+    achievementShare: 'Share',
+    achievementView: 'View',
+    shareImageDownloaded:
+      'Certificate image saved — you can share it from your gallery',
+    certificateSharing: 'Preparing image…',
   },
 } as const
 

@@ -10,9 +10,13 @@ import type { LibraryState, MediaItem, Playlist, ProgressState } from './types/c
 import { playlistById } from './lib/catalog'
 import {
   allSeriesProgressStats,
+  achievementIcon,
+  allBuiltinSeriesComplete,
   buildSeriesViews,
+  completedSeriesList,
   findContinueTarget,
   findSeriesNeighbors,
+  GRAND_ACHIEVEMENT_ID,
   seriesCover,
   seriesDefById,
   seriesIcon,
@@ -42,7 +46,12 @@ import {
   sourceLabel,
 } from './lib/embeds'
 import { importYoutubePlaylist } from './lib/youtubePlaylist'
-import { shareContent } from './lib/share'
+import { shareContent, shareImageFile, type ShareResult } from './lib/share'
+import {
+  certificateImageFilename,
+  renderCertificateImage,
+  type CertificateImageContent,
+} from './lib/certificateImage'
 import {
   canNativeInstall,
   captureInstallPrompt,
@@ -57,6 +66,7 @@ import './App.css'
 type Theme = 'light' | 'dark'
 type Screen =
   | { name: 'home' }
+  | { name: 'achievements' }
   | { name: 'series'; seriesId: string }
   | { name: 'player'; seriesId: string; playlistId: string; itemId: string }
 
@@ -257,7 +267,14 @@ function App() {
           merged[id] ?? loadProgress(id),
         )
         if (stats.percent === 100) {
-          queueMicrotask(() => setCertificateSeriesId(seriesId))
+          queueMicrotask(() => {
+            const getProg = (id: string) => merged[id] ?? loadProgress(id)
+            setCertificateSeriesId(
+              allBuiltinSeriesComplete(library, getProg)
+                ? GRAND_ACHIEVEMENT_ID
+                : seriesId,
+            )
+          })
         }
       }
       return merged
@@ -363,6 +380,18 @@ function App() {
         />
       )
     }
+  } else if (screen.name === 'achievements') {
+    main = (
+      <AchievementsScreen
+        library={library}
+        language={language}
+        text={text}
+        menu={menuProps}
+        showInstall={!isInstalled}
+        getProgress={ensureProgress}
+        onOpenCertificate={setCertificateSeriesId}
+      />
+    )
   } else {
     main = (
       <HomeScreen
@@ -379,13 +408,16 @@ function App() {
     )
   }
 
-  const certificateDef = certificateSeriesId
-    ? seriesDefById(library, certificateSeriesId)
-    : null
+  const certificateDef =
+    certificateSeriesId && certificateSeriesId !== GRAND_ACHIEVEMENT_ID
+      ? seriesDefById(library, certificateSeriesId)
+      : null
+  const showCertificate =
+    certificateSeriesId === GRAND_ACHIEVEMENT_ID || certificateDef
 
   return (
     <div
-      className={`app-shell${screen.name === 'player' ? ' app-shell-player' : ''}`}
+      className={`app-shell${screen.name === 'player' ? ' app-shell-player' : ''}${screen.name === 'home' || screen.name === 'achievements' ? ' app-shell-tabs' : ''}`}
     >
       <div className="atmosphere" aria-hidden="true">
         <div className="pattern-overlay" />
@@ -403,9 +435,9 @@ function App() {
           </button>
         </div>
       ) : null}
-      {certificateDef && certificateSeriesId ? (
+      {showCertificate && certificateSeriesId ? (
         <CertificateModal
-          seriesId={certificateSeriesId}
+          targetId={certificateSeriesId}
           def={certificateDef}
           language={language}
           text={text}
@@ -415,6 +447,24 @@ function App() {
             setScreen({ name: 'series', seriesId: nextId })
           }}
         />
+      ) : null}
+      {screen.name === 'home' || screen.name === 'achievements' ? (
+        <nav className="tab-bar" aria-label={text.menu}>
+          <button
+            type="button"
+            className={`tab-btn${screen.name === 'home' ? ' is-active' : ''}`}
+            onClick={() => setScreen({ name: 'home' })}
+          >
+            {text.home}
+          </button>
+          <button
+            type="button"
+            className={`tab-btn${screen.name === 'achievements' ? ' is-active' : ''}`}
+            onClick={() => setScreen({ name: 'achievements' })}
+          >
+            {text.achievementsTab}
+          </button>
+        </nav>
       ) : null}
     </div>
   )
@@ -526,24 +576,132 @@ function NavChip({
   )
 }
 
+function certificateSharePayload(
+  targetId: string,
+  language: Language,
+  text: Text,
+  def: ReturnType<typeof seriesDefById>,
+) {
+  if (targetId === GRAND_ACHIEVEMENT_ID) {
+    return {
+      title: text.certificateGrandTitle,
+      text: text.certificateGrandShareMessage,
+    }
+  }
+  const title = def ? seriesTitle(def, language) : ''
+  return {
+    title: text.certificateTitle,
+    text: text.certificateShareMessage(title),
+  }
+}
+
+function buildCertificateImageContent(
+  targetId: string,
+  language: Language,
+  text: Text,
+  def: ReturnType<typeof seriesDefById>,
+): CertificateImageContent {
+  const isGrand = targetId === GRAND_ACHIEVEMENT_ID
+  const seriesName = def ? seriesTitle(def, language) : ''
+  return {
+    icon: achievementIcon(targetId),
+    kicker: isGrand ? text.certificateGrandTitle : text.certificateTitle,
+    heading: isGrand ? text.certificateGrandHeading : seriesName,
+    congrats: text.certificateCongrats,
+    detail: isGrand ? text.certificateGrandBody : text.certificateBody(seriesName),
+    brand: text.brandName,
+    rtl: language === 'ar',
+  }
+}
+
+function noticeForCertificateShare(result: ShareResult, text: Text): string | null {
+  if (result === 'downloaded') return text.shareImageDownloaded
+  if (result === 'failed') return text.shareFailed
+  return null
+}
+
+async function shareCertificateAsImage(
+  targetId: string,
+  language: Language,
+  text: Text,
+  def: ReturnType<typeof seriesDefById>,
+): Promise<ShareResult> {
+  const blob = await renderCertificateImage(
+    buildCertificateImageContent(targetId, language, text, def),
+  )
+  const payload = certificateSharePayload(targetId, language, text, def)
+  return shareImageFile({
+    blob,
+    filename: certificateImageFilename(targetId),
+    title: payload.title,
+    text: payload.text,
+  })
+}
+
+function CertificateVisual({
+  targetId,
+  language,
+  text,
+  def,
+  compact = false,
+}: {
+  targetId: string
+  language: Language
+  text: Text
+  def: ReturnType<typeof seriesDefById>
+  compact?: boolean
+}) {
+  const isGrand = targetId === GRAND_ACHIEVEMENT_ID
+  const heading = isGrand
+    ? text.certificateGrandHeading
+    : def
+      ? seriesTitle(def, language)
+      : ''
+  const detail = isGrand
+    ? text.certificateGrandBody
+    : def
+      ? text.certificateBody(seriesTitle(def, language))
+      : ''
+
+  return (
+    <div className={`certificate-frame${compact ? ' certificate-frame-compact' : ''}`}>
+      <span className="certificate-ornament" aria-hidden="true">
+        ✦ {achievementIcon(targetId)} ✦
+      </span>
+      <p className="certificate-kicker">
+        {isGrand ? text.certificateGrandTitle : text.certificateTitle}
+      </p>
+      <h2 id="certificate-title" className="certificate-heading" dir="auto">
+        {heading}
+      </h2>
+      <p className="certificate-body">{text.certificateCongrats}</p>
+      <p className="certificate-detail" dir="auto">
+        {detail}
+      </p>
+      <p className="certificate-brand">{text.brandName}</p>
+    </div>
+  )
+}
+
 function CertificateModal({
-  seriesId,
+  targetId,
   def,
   language,
   text,
   onClose,
   onOpenNextSeries,
 }: {
-  seriesId: string
-  def: NonNullable<ReturnType<typeof seriesDefById>>
+  targetId: string
+  def: ReturnType<typeof seriesDefById>
   language: Language
   text: Text
   onClose: () => void
   onOpenNextSeries: (seriesId: string) => void
 }) {
   const [notice, setNotice] = useState<string | null>(null)
-  const title = seriesTitle(def, language)
-  const nextId = nextSeriesId(seriesId)
+  const [sharing, setSharing] = useState(false)
+  const isGrand = targetId === GRAND_ACHIEVEMENT_ID
+  const nextId = !isGrand ? nextSeriesId(targetId) : null
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -554,44 +712,43 @@ function CertificateModal({
   }, [onClose])
 
   async function shareCertificate() {
-    const result = await shareContent({
-      title: text.certificateTitle,
-      text: text.certificateShareMessage(title),
-    })
-    if (result === 'copied') setNotice(text.shareCopied)
-    else if (result === 'failed') setNotice(text.shareFailed)
+    if (sharing) return
+    setSharing(true)
+    setNotice(null)
+    try {
+      const result = await shareCertificateAsImage(targetId, language, text, def)
+      const message = noticeForCertificateShare(result, text)
+      if (message) setNotice(message)
+    } catch {
+      setNotice(text.shareFailed)
+    } finally {
+      setSharing(false)
+    }
   }
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="certificate-card"
+        className="certificate-card certificate-card-celebrate"
         role="dialog"
         aria-labelledby="certificate-title"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="certificate-frame">
-          <span className="certificate-ornament" aria-hidden="true">
-            ✦ {seriesIcon(seriesId)} ✦
-          </span>
-          <p className="certificate-kicker">{text.certificateTitle}</p>
-          <h2 id="certificate-title" className="certificate-heading" dir="auto">
-            {title}
-          </h2>
-          <p className="certificate-body">{text.certificateCongrats}</p>
-          <p className="certificate-detail" dir="auto">
-            {text.certificateBody(title)}
-          </p>
-          <p className="certificate-brand">{text.brandName}</p>
-        </div>
+        <CertificateVisual
+          targetId={targetId}
+          language={language}
+          text={text}
+          def={def}
+        />
         {notice ? <p className="share-notice">{notice}</p> : null}
         <div className="certificate-actions">
           <button
             type="button"
             className="primary-btn"
             onClick={shareCertificate}
+            disabled={sharing}
           >
-            {text.certificateShare}
+            {sharing ? text.certificateSharing : text.certificateShare}
           </button>
           {nextId ? (
             <button
@@ -601,9 +758,9 @@ function CertificateModal({
             >
               {text.certificateNextSeries}
             </button>
-          ) : (
+          ) : isGrand ? (
             <p className="certificate-all-done">{text.certificateAllDone}</p>
-          )}
+          ) : null}
           <button type="button" className="text-btn" onClick={onClose}>
             {text.certificateClose}
           </button>
@@ -964,6 +1121,176 @@ function AppMenu({
   )
 }
 
+function AchievementsScreen({
+  library,
+  language,
+  text,
+  menu,
+  showInstall,
+  getProgress,
+  onOpenCertificate,
+}: {
+  library: LibraryState
+  language: Language
+  text: Text
+  menu: React.ComponentProps<typeof AppMenuButton>['menu']
+  showInstall: boolean
+  getProgress: (id: string) => ProgressState
+  onOpenCertificate: (targetId: string) => void
+}) {
+  const completed = useMemo(
+    () => completedSeriesList(library, getProgress),
+    [library, getProgress],
+  )
+  const grandComplete = useMemo(
+    () => allBuiltinSeriesComplete(library, getProgress),
+    [library, getProgress],
+  )
+  const [notice, setNotice] = useState<string | null>(null)
+  const [sharingId, setSharingId] = useState<string | null>(null)
+
+  async function shareTarget(targetId: string, def: ReturnType<typeof seriesDefById>) {
+    if (sharingId) return
+    setSharingId(targetId)
+    setNotice(null)
+    try {
+      const result = await shareCertificateAsImage(targetId, language, text, def)
+      const message = noticeForCertificateShare(result, text)
+      if (message) setNotice(message)
+      if (message) window.setTimeout(() => setNotice(null), 3200)
+    } catch {
+      setNotice(text.shareFailed)
+      window.setTimeout(() => setNotice(null), 3200)
+    } finally {
+      setSharingId(null)
+    }
+  }
+
+  const hasAny = grandComplete || completed.length > 0
+
+  return (
+    <div className="page page-achievements page-with-tabs">
+      <div className="home-shell">
+        <StickyHomeControls
+          showInstall={showInstall}
+          menu={menu}
+          text={text}
+        />
+        <header className="achievements-hero">
+          <div className="achievements-hero-copy">
+            <h1>{text.achievementsTitle}</h1>
+            <p>{text.achievementsSubtitle}</p>
+          </div>
+          <div
+            className={`header-controls-spacer${showInstall ? ' header-controls-spacer-with-install' : ''}`}
+            aria-hidden="true"
+          />
+        </header>
+
+        {notice ? (
+          <p className="share-notice share-notice-inline" role="status">
+            {notice}
+          </p>
+        ) : null}
+
+        {!hasAny ? (
+          <p className="empty-state achievements-empty">{text.achievementsEmpty}</p>
+        ) : (
+          <ul className="achievement-list">
+            {grandComplete ? (
+              <li key={GRAND_ACHIEVEMENT_ID}>
+                <AchievementCard
+                  targetId={GRAND_ACHIEVEMENT_ID}
+                  def={null}
+                  language={language}
+                  text={text}
+                  featured
+                  sharing={sharingId === GRAND_ACHIEVEMENT_ID}
+                  onView={() => onOpenCertificate(GRAND_ACHIEVEMENT_ID)}
+                  onShare={() => shareTarget(GRAND_ACHIEVEMENT_ID, null)}
+                />
+              </li>
+            ) : null}
+            {completed.map((def) => (
+              <li key={def.id}>
+                <AchievementCard
+                  targetId={def.id}
+                  def={def}
+                  language={language}
+                  text={text}
+                  sharing={sharingId === def.id}
+                  onView={() => onOpenCertificate(def.id)}
+                  onShare={() => shareTarget(def.id, def)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function AchievementCard({
+  targetId,
+  def,
+  language,
+  text,
+  featured = false,
+  sharing = false,
+  onView,
+  onShare,
+}: {
+  targetId: string
+  def: ReturnType<typeof seriesDefById>
+  language: Language
+  text: Text
+  featured?: boolean
+  sharing?: boolean
+  onView: () => void
+  onShare: () => void
+}) {
+  const isGrand = targetId === GRAND_ACHIEVEMENT_ID
+  const title = isGrand
+    ? text.certificateGrandHeading
+    : def
+      ? seriesTitle(def, language)
+      : ''
+
+  return (
+    <article
+      className={`achievement-card${featured ? ' achievement-card-featured' : ''}`}
+    >
+      <CertificateVisual
+        targetId={targetId}
+        language={language}
+        text={text}
+        def={def}
+        compact
+      />
+      <div className="achievement-card-actions">
+        <span className="achievement-badge">{text.achievementEarned}</span>
+        <div className="achievement-card-btns">
+          <button type="button" className="secondary-btn" onClick={onView}>
+            {text.achievementView}
+          </button>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={onShare}
+            disabled={sharing}
+          >
+            {sharing ? text.certificateSharing : text.achievementShare}
+          </button>
+        </div>
+      </div>
+      <p className="sr-only" dir="auto">
+        {title}
+      </p>
+    </article>
+  )
+}
+
 function HomeScreen({
   library,
   language,
@@ -996,7 +1323,7 @@ function HomeScreen({
   )
 
   return (
-    <div className="page page-home">
+    <div className="page page-home page-with-tabs">
       <div className="home-shell">
         <StickyHomeControls
           showInstall={showInstall}

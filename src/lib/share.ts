@@ -3,7 +3,16 @@ export function appUrl(): string {
   return window.location.origin + window.location.pathname
 }
 
-export type ShareResult = 'shared' | 'copied' | 'cancelled' | 'failed'
+export type ShareResult = 'shared' | 'copied' | 'cancelled' | 'failed' | 'downloaded'
+
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
 
 export function formatShareText(text: string, url?: string): string {
   const link = url ?? appUrl()
@@ -70,6 +79,39 @@ export async function shareContent(options: {
   if (copyTextFallback(fullText)) return 'copied'
 
   return 'failed'
+}
+
+export async function shareImageFile(options: {
+  blob: Blob
+  filename: string
+  title: string
+  text?: string
+}): Promise<ShareResult> {
+  const file = new File([options.blob], options.filename, { type: 'image/png' })
+  const withMeta = {
+    title: options.title,
+    text: options.text ?? options.title,
+    files: [file],
+  }
+  const filesOnly = { files: [file] }
+
+  if (typeof navigator.share === 'function') {
+    try {
+      if (!navigator.canShare || navigator.canShare(withMeta)) {
+        await navigator.share(withMeta)
+        return 'shared'
+      }
+      if (!navigator.canShare || navigator.canShare(filesOnly)) {
+        await navigator.share(filesOnly)
+        return 'shared'
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return 'cancelled'
+    }
+  }
+
+  downloadBlob(options.blob, options.filename)
+  return 'downloaded'
 }
 
 export async function copyShareText(text: string, url?: string): Promise<boolean> {

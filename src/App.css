@@ -763,6 +763,8 @@ code {
 }
 
 .progress-track {
+  display: block;
+  width: 100%;
   height: 0.45rem;
   border-radius: 999px;
   background: var(--track);
@@ -770,6 +772,7 @@ code {
 }
 
 .progress-fill {
+  display: block;
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--brand), var(--accent));
@@ -1445,8 +1448,249 @@ code {
   padding-bottom: 5.5rem;
 }
 
+.app-shell-tabs {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
 .page-with-tabs {
-  padding-bottom: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+.achievements-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.achievements-hero-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.achievements-hero h1 {
+  margin: 0 0 0.45rem;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 2.6rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--brand);
+}
+
+.achievements-hero p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.achievements-empty {
+  padding: 1.25rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.achievement-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.achievement-card {
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: rise 0.55s ease both;
+}
+
+.achievement-card-featured {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  box-shadow:
+    0 18px 45px rgba(184, 134, 11, 0.14),
+    var(--shadow);
+}
+
+.achievement-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1rem 1rem;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-solid) 72%, transparent);
+}
+
+.achievement-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.achievement-card-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.certificate-banner {
+  margin-bottom: 1.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 18px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent-soft) 80%, transparent),
+    color-mix(in srgb, var(--surface-solid) 90%, transparent)
+  );
+  box-shadow: var(--shadow);
+  animation: rise 0.55s ease both;
+}
+
+.certificate-banner p {
+  margin: 0 0 0.85rem;
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.certificate-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.certificate-card {
+  width: min(26rem, 100%);
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+}
+
+.certificate-card-celebrate {
+  animation: certificate-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.certificate-frame {
+  position: relative;
+  padding: 1.35rem 1.15rem 1.2rem;
+  border: 2px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+  border-radius: 18px;
+  background:
+    radial-gradient(
+      ellipse 90% 70% at 50% 0%,
+      color-mix(in srgb, var(--accent-soft) 70%, transparent),
+      transparent 68%
+    ),
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--surface-solid) 96%, #fff),
+      color-mix(in srgb, var(--bg-0) 88%, transparent)
+    );
+  text-align: center;
+}
+
+.certificate-frame-compact {
+  padding: 1rem 0.85rem 0.9rem;
+  border-width: 1px;
+  border-radius: 16px;
+}
+
+.certificate-frame-compact .certificate-heading {
+  font-size: clamp(1.15rem, 4vw, 1.45rem);
+}
+
+.certificate-frame-compact .certificate-detail {
+  font-size: 0.88rem;
+}
+
+.certificate-ornament {
+  display: block;
+  margin-bottom: 0.55rem;
+  color: var(--accent);
+  font-size: 1.35rem;
+  letter-spacing: 0.12em;
+}
+
+.certificate-kicker {
+  margin: 0 0 0.35rem;
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.certificate-heading {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.45rem, 5vw, 1.85rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--brand);
+}
+
+.certificate-body {
+  margin: 0 0 0.45rem;
+  color: var(--accent);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.certificate-detail {
+  margin: 0 0 0.85rem;
+  color: var(--ink-soft);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.certificate-brand {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  opacity: 0.72;
+}
+
+.certificate-actions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.certificate-all-done {
+  margin: 0;
+  padding: 0.55rem 0.2rem 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+@keyframes certificate-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .home-hero {

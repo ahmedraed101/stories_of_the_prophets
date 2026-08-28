@@ -259,3 +259,30 @@ export function nextSeriesId(seriesId: string): string | null {
   if (seriesId === 'prophets-stories') return 'prophetic-sirah'
   return null
 }
+
+export const GRAND_ACHIEVEMENT_ID = '__grand__'
+
+export function completedSeriesList(
+  library: LibraryState,
+  getProgress: (playlistId: string) => ProgressState,
+): SeriesDef[] {
+  return allSeriesDefs(library).filter((def) => {
+    const stats = seriesProgressStats(library, def.id, getProgress)
+    return stats.total > 0 && stats.percent === 100
+  })
+}
+
+export function allBuiltinSeriesComplete(
+  library: LibraryState,
+  getProgress: (playlistId: string) => ProgressState,
+): boolean {
+  return BUILTIN_SERIES.every((def) => {
+    const stats = seriesProgressStats(library, def.id, getProgress)
+    return stats.total > 0 && stats.percent === 100
+  })
+}
+
+export function achievementIcon(targetId: string): string {
+  if (targetId === GRAND_ACHIEVEMENT_ID) return '🏆'
+  return seriesIcon(targetId)
+}
