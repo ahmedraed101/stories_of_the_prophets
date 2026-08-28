@@ -14,6 +14,17 @@ export type CertificateImageContent = {
 const WIDTH = 1200
 const HEIGHT = 630
 
+const CERTIFICATE_FONT_SPECS = [
+  '400 24px Amiri',
+  '700 40px Amiri',
+  '700 44px Amiri',
+  '700 22px "Noto Kufi Arabic"',
+  '700 26px "Noto Kufi Arabic"',
+  '400 22px "Noto Kufi Arabic"',
+  '600 24px "Noto Kufi Arabic"',
+  '400 20px "Noto Kufi Arabic"',
+] as const
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -70,30 +81,32 @@ function drawLines(
   return y
 }
 
-async function ensureCertificateFonts() {
-  if (!document.fonts?.load) return
-  await Promise.all([
-    document.fonts.load('400 24px Amiri'),
-    document.fonts.load('700 40px Amiri'),
-    document.fonts.load('700 44px Amiri'),
-    document.fonts.load('700 22px "Noto Kufi Arabic"'),
-    document.fonts.load('700 26px "Noto Kufi Arabic"'),
-    document.fonts.load('400 22px "Noto Kufi Arabic"'),
-    document.fonts.load('600 24px "Noto Kufi Arabic"'),
-  ]).catch(() => {})
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob)
+      else reject(new Error('Failed to render certificate image'))
+    }, 'image/png')
+  })
 }
 
-export async function renderCertificateImage(
+async function ensureCertificateFonts(): Promise<void> {
+  if (!document.fonts?.load) return
+
+  await Promise.all(CERTIFICATE_FONT_SPECS.map((spec) => document.fonts.load(spec)))
+  await document.fonts.ready
+
+  const ready = CERTIFICATE_FONT_SPECS.every((spec) => document.fonts.check(spec))
+  if (!ready) {
+    await new Promise((resolve) => window.setTimeout(resolve, 120))
+    await document.fonts.ready
+  }
+}
+
+function drawCertificate(
+  ctx: CanvasRenderingContext2D,
   content: CertificateImageContent,
-): Promise<Blob> {
-  await ensureCertificateFonts()
-
-  const canvas = document.createElement('canvas')
-  canvas.width = WIDTH
-  canvas.height = HEIGHT
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Canvas not supported')
-
+): void {
   const bg = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT)
   bg.addColorStop(0, '#f4efe4')
   bg.addColorStop(1, '#e8e0d0')
@@ -199,13 +212,77 @@ export async function renderCertificateImage(
   ctx.font = '600 24px "Noto Kufi Arabic", sans-serif'
   ctx.fillStyle = '#0f4d3a'
   ctx.fillText(content.closing, centerX, innerY + innerH - 40)
+}
 
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob)
-      else reject(new Error('Failed to render certificate image'))
-    }, 'image/png')
-  })
+export async function renderCertificateImage(
+  content: CertificateImageContent,
+): Promise<Blob> {
+  await ensureCertificateFonts()
+
+  const canvas = document.createElement('canvas')
+  canvas.width = WIDTH
+  canvas.height = HEIGHT
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas not supported')
+
+  drawCertificate(ctx, content)
+  return canvasToBlob(canvas)
+}
+
+/** Share image with caption footer — WhatsApp ignores separate share text when files are attached. */
+export async function renderCertificateShareImage(
+  content: CertificateImageContent,
+  shareCaption: string,
+): Promise<Blob> {
+  await ensureCertificateFonts()
+
+  const captionLines = shareCaption
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const footerPad = 36
+  const lineHeight = 34
+  const footerHeight = footerPad * 2 + captionLines.length * lineHeight
+  const totalHeight = HEIGHT + footerHeight
+
+  const canvas = document.createElement('canvas')
+  canvas.width = WIDTH
+  canvas.height = totalHeight
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas not supported')
+
+  ctx.fillStyle = '#f4efe4'
+  ctx.fillRect(0, 0, WIDTH, totalHeight)
+
+  const certCanvas = document.createElement('canvas')
+  certCanvas.width = WIDTH
+  certCanvas.height = HEIGHT
+  const certCtx = certCanvas.getContext('2d')
+  if (!certCtx) throw new Error('Canvas not supported')
+  drawCertificate(certCtx, content)
+  ctx.drawImage(certCanvas, 0, 0)
+
+  const separatorY = HEIGHT + 18
+  ctx.strokeStyle = '#d4af37'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(96, separatorY)
+  ctx.lineTo(WIDTH - 96, separatorY)
+  ctx.stroke()
+
+  ctx.direction = content.rtl ? 'rtl' : 'ltr'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'alphabetic'
+  ctx.font = '400 20px "Noto Kufi Arabic", Amiri, sans-serif'
+  ctx.fillStyle = '#5c655f'
+
+  let y = separatorY + footerPad + 8
+  for (const line of captionLines) {
+    ctx.fillText(line, WIDTH / 2, y)
+    y += lineHeight
+  }
+
+  return canvasToBlob(canvas)
 }
 
 export function certificateImageFilename(targetId: string): string {

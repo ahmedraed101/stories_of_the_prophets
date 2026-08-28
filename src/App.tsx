@@ -62,6 +62,7 @@ import {
 import {
   certificateImageFilename,
   renderCertificateImage,
+  renderCertificateShareImage,
   type CertificateImageContent,
 } from './lib/certificateImage'
 import {
@@ -716,25 +717,32 @@ function useCertificateBlob(
   learnerName: string,
 ) {
   const blobRef = useRef<Blob | null>(null)
+  const shareBlobRef = useRef<Blob | null>(null)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setReady(false)
     blobRef.current = null
+    shareBlobRef.current = null
 
-    renderCertificateImage(
-      buildCertificateImageContent(
-        targetId,
-        language,
-        text,
-        def,
-        learnerName,
-      ),
+    const content = buildCertificateImageContent(
+      targetId,
+      language,
+      text,
+      def,
+      learnerName,
     )
-      .then((blob) => {
+    const shareCaption = certificateShareText(targetId, language, text, def)
+
+    Promise.all([
+      renderCertificateImage(content),
+      renderCertificateShareImage(content, shareCaption),
+    ])
+      .then(([blob, shareBlob]) => {
         if (cancelled) return
         blobRef.current = blob
+        shareBlobRef.current = shareBlob
         setReady(true)
       })
       .catch(() => {
@@ -746,7 +754,7 @@ function useCertificateBlob(
     }
   }, [targetId, language, text, def, learnerName])
 
-  return { blobRef, ready }
+  return { blobRef, shareBlobRef, ready }
 }
 
 async function shareCachedCertificateBlob(
@@ -762,6 +770,7 @@ async function shareCachedCertificateBlob(
     filename: certificateImageFilename(targetId),
     title: payload.title,
     text: formatShareText(payload.text),
+    mode: 'files-first',
   })
 }
 
@@ -832,7 +841,7 @@ function CertificateModal({
   const [busy, setBusy] = useState<'share' | 'download' | null>(null)
   const [draftName, setDraftName] = useState(learnerName)
   const displayName = draftName.trim() || learnerName
-  const { blobRef, ready: imageReady } = useCertificateBlob(
+  const { blobRef, shareBlobRef, ready: imageReady } = useCertificateBlob(
     targetId,
     language,
     text,
@@ -862,7 +871,7 @@ function CertificateModal({
   }
 
   function shareCertificate() {
-    const blob = blobRef.current
+    const blob = shareBlobRef.current ?? blobRef.current
     if (!blob || busy || !displayName) return
 
     const shareText = certificateShareText(targetId, language, text, def)
@@ -1509,7 +1518,7 @@ function AchievementCard({
   onView: () => void
   onNotice: (message: string) => void
 }) {
-  const { blobRef, ready: imageReady } = useCertificateBlob(
+  const { blobRef, shareBlobRef, ready: imageReady } = useCertificateBlob(
     targetId,
     language,
     text,
@@ -1521,7 +1530,7 @@ function AchievementCard({
   const canShareOrDownload = Boolean(learnerName) && imageReady
 
   function shareCertificate() {
-    const blob = blobRef.current
+    const blob = shareBlobRef.current ?? blobRef.current
     if (!blob || busy || !learnerName) {
       if (!learnerName) onNotice(text.certificateNameRequired)
       return
