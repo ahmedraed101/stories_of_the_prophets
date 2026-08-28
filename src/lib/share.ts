@@ -180,7 +180,7 @@ export async function shareCachedAppIcon(options: {
     filename: APP_ICON_FILENAME,
     title: options.title,
     text: shareText,
-    preferFilesOnly: true,
+    mode: 'files-first',
   })
 }
 
@@ -267,15 +267,18 @@ export async function shareContent(options: {
   return 'failed'
 }
 
+export type ShareImageMode = 'caption-required' | 'files-first'
+
 export async function shareImageFile(options: {
   blob: Blob
   filename: string
   title: string
   text?: string
-  /** App icon share: file-only first (WhatsApp drops image when text is included). */
-  preferFilesOnly?: boolean
+  /** Certificate share keeps caption; app icon share prefers image-only. */
+  mode?: ShareImageMode
 }): Promise<ShareResult> {
   const shareText = options.text ?? options.title
+  const mode = options.mode ?? 'caption-required'
 
   if (typeof navigator.share === 'function') {
     const file = new File([options.blob], options.filename, {
@@ -283,23 +286,27 @@ export async function shareImageFile(options: {
       lastModified: Date.now(),
     })
 
-    const withText: ShareData[] = [
+    const captionPayloads: ShareData[] = [
       { files: [file], text: shareText },
       { files: [file], title: options.title, text: shareText },
-      { files: [file], title: options.title },
-      { files: [file] },
+      { files: [file], title: shareText },
     ]
-    const filesFirst: ShareData[] = [
+    const filesFirstPayloads: ShareData[] = [
       { files: [file] },
       { files: [file], title: options.title },
       { files: [file], title: options.title, text: shareText },
       { files: [file], text: shareText },
     ]
-    const payloads = options.preferFilesOnly ? filesFirst : withText
+    const payloads = mode === 'files-first' ? filesFirstPayloads : captionPayloads
+    const skipCanShare = mode === 'caption-required'
 
     for (const payload of payloads) {
       try {
-        if (typeof navigator.canShare === 'function' && !navigator.canShare(payload)) {
+        if (
+          !skipCanShare &&
+          typeof navigator.canShare === 'function' &&
+          !navigator.canShare(payload)
+        ) {
           continue
         }
         await navigator.share(payload)
