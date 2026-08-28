@@ -1,0 +1,22 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# SPA + PWA: serve index.html for client-side routes and deep links.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[context.production.environment]
+  # Set VITE_SITE_URL in Netlify UI or GitHub repo variables for OG previews.
+  # Example: https://your-site.netlify.app
+
+[context.deploy-preview.environment]
+  VITE_SITE_URL = ""
+
+[context.branch-deploy.environment]
+  VITE_SITE_URL = ""
