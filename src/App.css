@@ -372,6 +372,16 @@ code {
   padding-top: 0.25rem;
 }
 
+.player-page .sticky-nav {
+  margin-inline: 0;
+  padding-inline: 0;
+}
+
+.player-page .sticky-nav.is-scrolled {
+  margin-inline: 0;
+  padding-inline: 0;
+}
+
 .sticky-nav {
   position: sticky;
   top: 0;
@@ -381,7 +391,6 @@ code {
   padding-top: max(0.55rem, env(safe-area-inset-top, 0px));
   padding-inline: 1rem;
   margin-inline: -1rem;
-  margin-top: -0.25rem;
   box-sizing: border-box;
   background: transparent;
   border: 1px solid transparent;
@@ -445,6 +454,7 @@ code {
 .sticky-nav-inner.player-sticky-nav .player-nav-tools {
   grid-column: 3;
   justify-self: end;
+  margin-inline-end: 0;
 }
 
 .menu-toggle {
@@ -692,8 +702,12 @@ code {
   color: rgba(238, 244, 241, 0.82);
 }
 
+.app-shell-player {
+  padding-bottom: 0;
+}
+
 .app-shell-player .player-page {
-  padding-bottom: 5.5rem;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
 }
 
 .theme-toggle:hover,
@@ -1088,13 +1102,12 @@ code {
 }
 
 .player-page {
-  min-height: 100dvh;
   display: grid;
   grid-template-rows: auto auto 1fr;
   width: min(960px, 100%);
   margin-inline: auto;
   padding: 1rem;
-  padding-bottom: 2.5rem;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
 }
 

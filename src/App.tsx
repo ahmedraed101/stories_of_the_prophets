@@ -238,6 +238,7 @@ function App() {
   }
 
   function openItem(seriesId: string, playlistId: string, item: MediaItem) {
+    window.scrollTo(0, 0)
     setScreen({ name: 'player', seriesId, playlistId, itemId: item.id })
   }
 
@@ -1435,6 +1436,10 @@ function PlayerView({
     playlistId,
     item.id,
   )
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [item.id])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
