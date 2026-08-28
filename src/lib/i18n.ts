@@ -66,12 +66,25 @@ export const translations = {
     seriesCollection: 'المجموعات',
     overallProgress: 'التقدم الكلي',
     upNext: 'التالي',
+    certificateMotto: 'فقفوا على آثارهم وزنوا بها أعمالكم',
     certificateTitle: 'شهادة إتمام',
-    certificateCongrats: 'بارك الله فيك!',
-    certificateBody: (series: string) =>
-      `أتممتَ مشاهدة «${series}» كاملة عبر التطبيق.`,
-    certificateShareMessage: (series: string) =>
-      `أتممتُ مشاهدة «${series}» عبر تطبيق قصص الأنبياء — تعلّم بلا تشتيت وتتبّع تقدّمك بهدوء. 🌙`,
+    certificateSeriesGrand: 'السيرة النبوية - قصص الأنبياء',
+    certificateAwardedTo: 'يتشرف تطبيق قصص الأنبياء بتقديم هذه الشهادة ل',
+    certificateAppreciation:
+      'تقديرا لجده واجتهاده في تعلم سيرة خير البشر',
+    certificateClosing: 'نفع الله بكم الأمة',
+    certificateNameLabel: 'اسمك على الشهادة',
+    certificateNamePlaceholder: 'اكتب اسمك',
+    certificateNameHint: 'يظهر اسمك على الشهادة عند المشاركة أو التحميل.',
+    certificateNameRequired: 'أدخل اسمك لإظهاره على الشهادة.',
+    certificateBannerText: (series: string) =>
+      `تهانينا على إتمام «${series}» — يمكنك عرض شهادتك ومشاركتها.`,
+    certificateShareCaption: (subjectLine: string) =>
+      [
+        'فقفوا على آثارهم وزنوا بها أعمالكم',
+        'شهادة إتمام',
+        subjectLine,
+      ].join('\n'),
     certificateShare: 'مشاركة',
     certificateDownload: 'تحميل الشهادة',
     certificateShareHint:
@@ -95,12 +108,6 @@ export const translations = {
     achievementsSubtitle: 'شهادات الإتمام التي يمكنك مشاركتها مع الآخرين.',
     achievementsEmpty:
       'أكمل مجموعة كاملة من الحلقات لتحصل على شهادة إنجاز يمكنك مشاركتها هنا.',
-    certificateGrandTitle: 'إنجاز كامل',
-    certificateGrandHeading: 'أتممتَ الرحلة كاملة',
-    certificateGrandBody:
-      'أكملتَ مشاهدة قصص الأنبياء والسيرة النبوية — بارك الله فيك على هذا الإنجاز.',
-    certificateGrandShareMessage:
-      'أتممتُ مشاهدة قصص الأنبياء والسيرة النبوية كاملة عبر التطبيق — رحلة تعلّم بلا تشتيت. 🏆🌙',
     achievementEarned: 'مكتمل',
     achievementShare: 'مشاركة',
     achievementView: 'عرض',
@@ -173,12 +180,26 @@ export const translations = {
     seriesCollection: 'Collections',
     overallProgress: 'Overall progress',
     upNext: 'Up next',
+    certificateMotto: 'Follow their footsteps and weigh your deeds thereby.',
     certificateTitle: 'Certificate of completion',
-    certificateCongrats: 'Well done!',
-    certificateBody: (series: string) =>
-      `You completed all episodes of “${series}”.`,
-    certificateShareMessage: (series: string) =>
-      `I completed “${series}” in the Stories of the Prophets app — focused learning without distractions. 🌙`,
+    certificateSeriesGrand: 'The Prophetic Biography — Stories of the Prophets',
+    certificateAwardedTo:
+      'The Stories of the Prophets app is honored to present this certificate to',
+    certificateAppreciation:
+      'In appreciation of their diligence and effort in learning the biography of the best of mankind',
+    certificateClosing: 'May Allah benefit the ummah through you',
+    certificateNameLabel: 'Your name on certificates',
+    certificateNamePlaceholder: 'Enter your name',
+    certificateNameHint: 'Your name appears on certificates when you share or download.',
+    certificateNameRequired: 'Enter your name to show it on the certificate.',
+    certificateBannerText: (series: string) =>
+      `Congratulations on completing “${series}” — view and share your certificate.`,
+    certificateShareCaption: (subjectLine: string) =>
+      [
+        'Follow their footsteps and weigh your deeds thereby.',
+        'Certificate of completion',
+        subjectLine,
+      ].join('\n'),
     certificateShare: 'Share',
     certificateDownload: 'Download certificate',
     certificateShareHint:
@@ -203,12 +224,6 @@ export const translations = {
     achievementsSubtitle: 'Completion certificates you can share with others.',
     achievementsEmpty:
       'Finish a full collection to earn a shareable certificate here.',
-    certificateGrandTitle: 'Full journey',
-    certificateGrandHeading: 'You completed the full journey',
-    certificateGrandBody:
-      'You finished Stories of the Prophets and the Prophetic Biography — well done.',
-    certificateGrandShareMessage:
-      'I completed the full Stories of the Prophets journey in the app — focused learning without distractions. 🏆🌙',
     achievementEarned: 'Complete',
     achievementShare: 'Share',
     achievementView: 'View',

@@ -1,12 +1,13 @@
 import { GRAND_ACHIEVEMENT_ID } from './series'
 
 export type CertificateImageContent = {
-  icon: string
+  motto: string
   kicker: string
-  heading: string
-  congrats: string
-  detail: string
-  brand: string
+  subjectLine: string
+  awardedTo: string
+  recipientName: string
+  appreciation: string
+  closing: string
   rtl: boolean
 }
 
@@ -54,14 +55,31 @@ function wrapText(
   return lines
 }
 
+function drawLines(
+  ctx: CanvasRenderingContext2D,
+  lines: string[],
+  centerX: number,
+  startY: number,
+  lineHeight: number,
+): number {
+  let y = startY
+  for (const line of lines) {
+    ctx.fillText(line, centerX, y)
+    y += lineHeight
+  }
+  return y
+}
+
 async function ensureCertificateFonts() {
   if (!document.fonts?.load) return
   await Promise.all([
-    document.fonts.load('700 52px Amiri'),
-    document.fonts.load('700 30px "Noto Kufi Arabic"'),
-    document.fonts.load('700 24px "Noto Kufi Arabic"'),
-    document.fonts.load('400 26px "Noto Kufi Arabic"'),
-    document.fonts.load('600 22px "Noto Kufi Arabic"'),
+    document.fonts.load('400 24px Amiri'),
+    document.fonts.load('700 40px Amiri'),
+    document.fonts.load('700 44px Amiri'),
+    document.fonts.load('700 22px "Noto Kufi Arabic"'),
+    document.fonts.load('700 26px "Noto Kufi Arabic"'),
+    document.fonts.load('400 22px "Noto Kufi Arabic"'),
+    document.fonts.load('600 24px "Noto Kufi Arabic"'),
   ]).catch(() => {})
 }
 
@@ -96,9 +114,9 @@ export async function renderCertificateImage(
 
   const pad = 48
   const innerX = pad
-  const innerY = 56
+  const innerY = 48
   const innerW = WIDTH - pad * 2
-  const innerH = HEIGHT - 96
+  const innerH = HEIGHT - 88
 
   roundRect(ctx, innerX, innerY, innerW, innerH, 28)
   const frameGrad = ctx.createLinearGradient(0, innerY, 0, innerY + innerH)
@@ -114,40 +132,73 @@ export async function renderCertificateImage(
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
 
-  let y = innerY + 78
-  ctx.font = '700 36px "Noto Kufi Arabic", sans-serif'
-  ctx.fillStyle = '#b8860b'
-  ctx.fillText(`✦ ${content.icon} ✦`, WIDTH / 2, y)
+  const centerX = WIDTH / 2
+  let y = innerY + 62
 
-  y += 52
-  ctx.font = '700 24px "Noto Kufi Arabic", sans-serif'
-  ctx.fillStyle = '#b8860b'
-  ctx.fillText(content.kicker, WIDTH / 2, y)
-
-  y += 58
-  ctx.font = '700 52px Amiri, "Noto Kufi Arabic", serif'
-  ctx.fillStyle = '#0f4d3a'
-  for (const line of wrapText(ctx, content.heading, innerW - 80)) {
-    ctx.fillText(line, WIDTH / 2, y)
-    y += 60
-  }
-
-  y += 8
-  ctx.font = '700 30px "Noto Kufi Arabic", sans-serif'
-  ctx.fillStyle = '#b8860b'
-  ctx.fillText(content.congrats, WIDTH / 2, y)
-
-  y += 46
-  ctx.font = '400 26px "Noto Kufi Arabic", sans-serif'
+  ctx.font = '400 24px Amiri, "Noto Kufi Arabic", serif'
   ctx.fillStyle = '#5c655f'
-  for (const line of wrapText(ctx, content.detail, innerW - 100)) {
-    ctx.fillText(line, WIDTH / 2, y)
-    y += 38
+  y = drawLines(
+    ctx,
+    wrapText(ctx, content.motto, innerW - 120),
+    centerX,
+    y,
+    34,
+  )
+
+  y += 18
+  ctx.font = '700 26px "Noto Kufi Arabic", sans-serif'
+  ctx.fillStyle = '#b8860b'
+  ctx.fillText(content.kicker, centerX, y)
+
+  y += 44
+  ctx.font = '700 40px Amiri, "Noto Kufi Arabic", serif'
+  ctx.fillStyle = '#0f4d3a'
+  y = drawLines(
+    ctx,
+    wrapText(ctx, content.subjectLine, innerW - 100),
+    centerX,
+    y,
+    48,
+  )
+
+  y += 28
+  ctx.font = '400 22px "Noto Kufi Arabic", sans-serif'
+  ctx.fillStyle = '#5c655f'
+  y = drawLines(
+    ctx,
+    wrapText(ctx, content.awardedTo, innerW - 120),
+    centerX,
+    y,
+    32,
+  )
+
+  if (content.recipientName) {
+    y += 12
+    ctx.font = '700 44px Amiri, "Noto Kufi Arabic", serif'
+    ctx.fillStyle = '#0f4d3a'
+    y = drawLines(
+      ctx,
+      wrapText(ctx, content.recipientName, innerW - 120),
+      centerX,
+      y + 38,
+      50,
+    )
   }
 
-  ctx.font = '600 22px "Noto Kufi Arabic", sans-serif'
-  ctx.fillStyle = 'rgba(26, 36, 31, 0.72)'
-  ctx.fillText(content.brand, WIDTH / 2, innerY + innerH - 36)
+  y += 20
+  ctx.font = '400 22px "Noto Kufi Arabic", sans-serif'
+  ctx.fillStyle = '#5c655f'
+  y = drawLines(
+    ctx,
+    wrapText(ctx, content.appreciation, innerW - 120),
+    centerX,
+    y,
+    32,
+  )
+
+  ctx.font = '600 24px "Noto Kufi Arabic", sans-serif'
+  ctx.fillStyle = '#0f4d3a'
+  ctx.fillText(content.closing, centerX, innerY + innerH - 40)
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {

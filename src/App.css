@@ -1627,6 +1627,14 @@ code {
   letter-spacing: 0.12em;
 }
 
+.certificate-motto {
+  margin: 0 0 0.55rem;
+  color: var(--ink-soft);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
 .certificate-kicker {
   margin: 0 0 0.35rem;
   color: var(--gold);
@@ -1634,6 +1642,59 @@ code {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.certificate-awarded-to {
+  margin: 0 0 0.2rem;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.certificate-name {
+  margin: 0 0 0.65rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 4.8vw, 1.7rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--brand);
+}
+
+.certificate-name-placeholder {
+  opacity: 0.45;
+  font-style: italic;
+}
+
+.certificate-closing {
+  margin: 0.75rem 0 0;
+  color: var(--brand);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.certificate-frame-compact .certificate-motto {
+  font-size: 0.78rem;
+}
+
+.certificate-frame-compact .certificate-closing {
+  font-size: 0.82rem;
+}
+
+.certificate-name-field {
+  margin-bottom: 0.85rem;
+}
+
+.certificate-name-field input {
+  width: 100%;
+}
+
+.menu-name-field {
+  padding: 0.55rem 0.85rem 0.2rem;
+}
+
+.menu-name-hint {
+  margin: 0;
+  padding: 0 0.85rem 0.55rem;
 }
 
 .certificate-heading {

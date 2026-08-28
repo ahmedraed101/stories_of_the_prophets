@@ -10,7 +10,6 @@ import type { LibraryState, MediaItem, Playlist, ProgressState } from './types/c
 import { playlistById } from './lib/catalog'
 import {
   allSeriesProgressStats,
-  achievementIcon,
   allBuiltinSeriesComplete,
   buildSeriesViews,
   completedSeriesList,
@@ -69,6 +68,7 @@ import {
   runInstallPrompt,
 } from './lib/pwaInstall'
 import { translations, type Language, type Text } from './lib/i18n'
+import { saveLearnerName, storedLearnerName } from './lib/learnerName'
 import './App.css'
 
 type Theme = 'light' | 'dark'
@@ -125,6 +125,7 @@ function App() {
   const [certificateSeriesId, setCertificateSeriesId] = useState<string | null>(
     null,
   )
+  const [learnerName, setLearnerName] = useState(storedLearnerName)
   const [shareNotice, setShareNotice] = useState<string | null>(null)
   const [isInstalled, setIsInstalled] = useState(() => isStandaloneApp())
   const text = translations[language]
@@ -328,11 +329,18 @@ function App() {
     setLibrary(addPlaylist(library, playlist))
   }
 
+  function updateLearnerName(name: string) {
+    const trimmed = name.trim()
+    saveLearnerName(trimmed)
+    setLearnerName(trimmed)
+  }
+
   const menuProps = {
     text,
     language,
     theme,
     isInstalled,
+    learnerName,
     playlists: library.playlists,
     onToggleLanguage: toggleLanguage,
     onToggleTheme: toggleTheme,
@@ -340,6 +348,7 @@ function App() {
     onAddPlaylist: handleAddPlaylist,
     onRemovePlaylist: handleRemovePlaylist,
     onShareApp: handleShareApp,
+    onLearnerNameChange: updateLearnerName,
   }
 
   let main: ReactNode = null
@@ -398,6 +407,7 @@ function App() {
         showInstall={!isInstalled}
         getProgress={ensureProgress}
         onOpenCertificate={setCertificateSeriesId}
+        learnerName={learnerName}
       />
     )
   } else {
@@ -449,6 +459,8 @@ function App() {
           def={certificateDef}
           language={language}
           text={text}
+          learnerName={learnerName}
+          onLearnerNameChange={updateLearnerName}
           onClose={() => setCertificateSeriesId(null)}
           onOpenNextSeries={(nextId) => {
             setCertificateSeriesId(null)
@@ -584,22 +596,26 @@ function NavChip({
   )
 }
 
+function certificateSubjectLine(
+  targetId: string,
+  language: Language,
+  text: Text,
+  def: ReturnType<typeof seriesDefById>,
+): string {
+  if (targetId === GRAND_ACHIEVEMENT_ID) return text.certificateSeriesGrand
+  return def ? seriesTitle(def, language) : ''
+}
+
 function certificateSharePayload(
   targetId: string,
   language: Language,
   text: Text,
   def: ReturnType<typeof seriesDefById>,
 ) {
-  if (targetId === GRAND_ACHIEVEMENT_ID) {
-    return {
-      title: text.certificateGrandTitle,
-      text: text.certificateGrandShareMessage,
-    }
-  }
-  const title = def ? seriesTitle(def, language) : ''
+  const subjectLine = certificateSubjectLine(targetId, language, text, def)
   return {
     title: text.certificateTitle,
-    text: text.certificateShareMessage(title),
+    text: text.certificateShareCaption(subjectLine),
   }
 }
 
@@ -608,16 +624,16 @@ function buildCertificateImageContent(
   language: Language,
   text: Text,
   def: ReturnType<typeof seriesDefById>,
+  learnerName: string,
 ): CertificateImageContent {
-  const isGrand = targetId === GRAND_ACHIEVEMENT_ID
-  const seriesName = def ? seriesTitle(def, language) : ''
   return {
-    icon: achievementIcon(targetId),
-    kicker: isGrand ? text.certificateGrandTitle : text.certificateTitle,
-    heading: isGrand ? text.certificateGrandHeading : seriesName,
-    congrats: text.certificateCongrats,
-    detail: isGrand ? text.certificateGrandBody : text.certificateBody(seriesName),
-    brand: text.brandName,
+    motto: text.certificateMotto,
+    kicker: text.certificateTitle,
+    subjectLine: certificateSubjectLine(targetId, language, text, def),
+    awardedTo: text.certificateAwardedTo,
+    recipientName: learnerName,
+    appreciation: text.certificateAppreciation,
+    closing: text.certificateClosing,
     rtl: language === 'ar',
   }
 }
@@ -648,6 +664,7 @@ function useCertificateBlob(
   language: Language,
   text: Text,
   def: ReturnType<typeof seriesDefById>,
+  learnerName: string,
 ) {
   const blobRef = useRef<Blob | null>(null)
   const [ready, setReady] = useState(false)
@@ -658,7 +675,13 @@ function useCertificateBlob(
     blobRef.current = null
 
     renderCertificateImage(
-      buildCertificateImageContent(targetId, language, text, def),
+      buildCertificateImageContent(
+        targetId,
+        language,
+        text,
+        def,
+        learnerName,
+      ),
     )
       .then((blob) => {
         if (cancelled) return
@@ -672,7 +695,7 @@ function useCertificateBlob(
     return () => {
       cancelled = true
     }
-  }, [targetId, language, text, def])
+  }, [targetId, language, text, def, learnerName])
 
   return { blobRef, ready }
 }
@@ -698,42 +721,41 @@ function CertificateVisual({
   language,
   text,
   def,
+  learnerName,
   compact = false,
 }: {
   targetId: string
   language: Language
   text: Text
   def: ReturnType<typeof seriesDefById>
+  learnerName: string
   compact?: boolean
 }) {
-  const isGrand = targetId === GRAND_ACHIEVEMENT_ID
-  const heading = isGrand
-    ? text.certificateGrandHeading
-    : def
-      ? seriesTitle(def, language)
-      : ''
-  const detail = isGrand
-    ? text.certificateGrandBody
-    : def
-      ? text.certificateBody(seriesTitle(def, language))
-      : ''
+  const subjectLine = certificateSubjectLine(targetId, language, text, def)
 
   return (
     <div className={`certificate-frame${compact ? ' certificate-frame-compact' : ''}`}>
-      <span className="certificate-ornament" aria-hidden="true">
-        ✦ {achievementIcon(targetId)} ✦
-      </span>
-      <p className="certificate-kicker">
-        {isGrand ? text.certificateGrandTitle : text.certificateTitle}
+      <p className="certificate-motto" dir="auto">
+        {text.certificateMotto}
       </p>
+      <p className="certificate-kicker">{text.certificateTitle}</p>
       <h2 id="certificate-title" className="certificate-heading" dir="auto">
-        {heading}
+        {subjectLine}
       </h2>
-      <p className="certificate-body">{text.certificateCongrats}</p>
+      <p className="certificate-awarded-to">{text.certificateAwardedTo}</p>
+      {learnerName ? (
+        <p className="certificate-name" dir="auto">
+          {learnerName}
+        </p>
+      ) : (
+        <p className="certificate-name certificate-name-placeholder" dir="auto">
+          {text.certificateNamePlaceholder}
+        </p>
+      )}
       <p className="certificate-detail" dir="auto">
-        {detail}
+        {text.certificateAppreciation}
       </p>
-      <p className="certificate-brand">{text.brandName}</p>
+      <p className="certificate-closing">{text.certificateClosing}</p>
     </div>
   )
 }
@@ -743,6 +765,8 @@ function CertificateModal({
   def,
   language,
   text,
+  learnerName,
+  onLearnerNameChange,
   onClose,
   onOpenNextSeries,
 }: {
@@ -750,20 +774,30 @@ function CertificateModal({
   def: ReturnType<typeof seriesDefById>
   language: Language
   text: Text
+  learnerName: string
+  onLearnerNameChange: (name: string) => void
   onClose: () => void
   onOpenNextSeries: (seriesId: string) => void
 }) {
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState<'share' | 'download' | null>(null)
+  const [draftName, setDraftName] = useState(learnerName)
+  const displayName = draftName.trim() || learnerName
   const { blobRef, ready: imageReady } = useCertificateBlob(
     targetId,
     language,
     text,
     def,
+    displayName,
   )
   const canShareImage = canShareImageFiles()
   const isGrand = targetId === GRAND_ACHIEVEMENT_ID
   const nextId = !isGrand ? nextSeriesId(targetId) : null
+  const canShareOrDownload = Boolean(displayName) && imageReady
+
+  useEffect(() => {
+    setDraftName(learnerName)
+  }, [learnerName, targetId])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -773,9 +807,14 @@ function CertificateModal({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  function commitName() {
+    const trimmed = draftName.trim()
+    if (trimmed) onLearnerNameChange(trimmed)
+  }
+
   function shareCertificate() {
     const blob = blobRef.current
-    if (!blob || busy) return
+    if (!blob || busy || !displayName) return
 
     const shareText = certificateShareText(targetId, language, text, def)
     const filename = certificateImageFilename(targetId)
@@ -813,7 +852,7 @@ function CertificateModal({
 
   function downloadCertificate() {
     const blob = blobRef.current
-    if (!blob || busy) return
+    if (!blob || busy || !displayName) return
     setBusy('download')
     setNotice(null)
     try {
@@ -834,11 +873,33 @@ function CertificateModal({
         aria-labelledby="certificate-title"
         onClick={(e) => e.stopPropagation()}
       >
+        <label className="certificate-name-field field">
+          <span>{text.certificateNameLabel}</span>
+          <input
+            type="text"
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitName()
+              }
+            }}
+            placeholder={text.certificateNamePlaceholder}
+            dir="auto"
+            autoComplete="name"
+          />
+        </label>
+        {!displayName ? (
+          <p className="certificate-share-hint">{text.certificateNameRequired}</p>
+        ) : null}
         <CertificateVisual
           targetId={targetId}
           language={language}
           text={text}
           def={def}
+          learnerName={displayName}
         />
         {notice ? <p className="share-notice">{notice}</p> : null}
         {canShareImage ? (
@@ -852,19 +913,21 @@ function CertificateModal({
               type="button"
               className="primary-btn"
               onClick={shareCertificate}
-              disabled={busy !== null || !imageReady}
+              disabled={busy !== null || !canShareOrDownload}
             >
-              {!imageReady
-                ? text.certificateSharing
-                : busy === 'share'
+              {!displayName
+                ? text.certificateNamePlaceholder
+                : !imageReady
                   ? text.certificateSharing
-                  : text.certificateShare}
+                  : busy === 'share'
+                    ? text.certificateSharing
+                    : text.certificateShare}
             </button>
             <button
               type="button"
               className="secondary-btn"
               onClick={downloadCertificate}
-              disabled={busy !== null || !imageReady}
+              disabled={busy !== null || !canShareOrDownload}
             >
               {busy === 'download'
                 ? text.certificateDownloading
@@ -899,6 +962,7 @@ function AppMenuButton({
     language: Language
     theme: Theme
     isInstalled: boolean
+    learnerName: string
     playlists: Playlist[]
     onToggleLanguage: () => void
     onToggleTheme: () => void
@@ -906,6 +970,7 @@ function AppMenuButton({
     onAddPlaylist: (url: string, title?: string) => Promise<void>
     onRemovePlaylist: (id: string) => void
     onShareApp: () => void
+    onLearnerNameChange: (name: string) => void
   }
 }) {
   return <AppMenu {...menu} />
@@ -1003,6 +1068,7 @@ function AppMenu({
   language,
   theme,
   isInstalled,
+  learnerName,
   playlists,
   onToggleLanguage,
   onToggleTheme,
@@ -1010,11 +1076,13 @@ function AppMenu({
   onAddPlaylist,
   onRemovePlaylist,
   onShareApp,
+  onLearnerNameChange,
 }: {
   text: Text
   language: Language
   theme: Theme
   isInstalled: boolean
+  learnerName: string
   playlists: Playlist[]
   onToggleLanguage: () => void
   onToggleTheme: () => void
@@ -1022,15 +1090,21 @@ function AppMenu({
   onAddPlaylist: (url: string, title?: string) => Promise<void>
   onRemovePlaylist: (id: string) => void
   onShareApp: () => void
+  onLearnerNameChange: (name: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [playlistsOpen, setPlaylistsOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
+  const [nameDraft, setNameDraft] = useState(learnerName)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pendingRemove, setPendingRemove] = useState<Playlist | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setNameDraft(learnerName)
+  }, [learnerName])
 
   useEffect(() => {
     if (!open) return
@@ -1150,6 +1224,28 @@ function AppMenu({
 
           <div className="menu-divider" role="separator" />
 
+          <label className="menu-name-field field">
+            <span>{text.certificateNameLabel}</span>
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={() => onLearnerNameChange(nameDraft)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  onLearnerNameChange(nameDraft)
+                }
+              }}
+              placeholder={text.certificateNamePlaceholder}
+              dir="auto"
+              autoComplete="name"
+            />
+          </label>
+          <p className="form-hint menu-name-hint">{text.certificateNameHint}</p>
+
+          <div className="menu-divider" role="separator" />
+
           <button
             type="button"
             className={`menu-item menu-item-expand${playlistsOpen ? ' is-open' : ''}`}
@@ -1250,6 +1346,7 @@ function AchievementsScreen({
   showInstall,
   getProgress,
   onOpenCertificate,
+  learnerName,
 }: {
   library: LibraryState
   language: Language
@@ -1258,6 +1355,7 @@ function AchievementsScreen({
   showInstall: boolean
   getProgress: (id: string) => ProgressState
   onOpenCertificate: (targetId: string) => void
+  learnerName: string
 }) {
   const completed = useMemo(
     () => completedSeriesList(library, getProgress),
@@ -1312,6 +1410,7 @@ function AchievementsScreen({
                   def={null}
                   language={language}
                   text={text}
+                  learnerName={learnerName}
                   featured
                   onView={() => onOpenCertificate(GRAND_ACHIEVEMENT_ID)}
                   onNotice={showNotice}
@@ -1325,6 +1424,7 @@ function AchievementsScreen({
                   def={def}
                   language={language}
                   text={text}
+                  learnerName={learnerName}
                   onView={() => onOpenCertificate(def.id)}
                   onNotice={showNotice}
                 />
@@ -1342,6 +1442,7 @@ function AchievementCard({
   def,
   language,
   text,
+  learnerName,
   featured = false,
   onView,
   onNotice,
@@ -1350,6 +1451,7 @@ function AchievementCard({
   def: ReturnType<typeof seriesDefById>
   language: Language
   text: Text
+  learnerName: string
   featured?: boolean
   onView: () => void
   onNotice: (message: string) => void
@@ -1359,18 +1461,18 @@ function AchievementCard({
     language,
     text,
     def,
+    learnerName,
   )
   const [busy, setBusy] = useState<'share' | 'download' | null>(null)
-  const isGrand = targetId === GRAND_ACHIEVEMENT_ID
-  const title = isGrand
-    ? text.certificateGrandHeading
-    : def
-      ? seriesTitle(def, language)
-      : ''
+  const title = certificateSubjectLine(targetId, language, text, def)
+  const canShareOrDownload = Boolean(learnerName) && imageReady
 
   function shareCertificate() {
     const blob = blobRef.current
-    if (!blob || busy) return
+    if (!blob || busy || !learnerName) {
+      if (!learnerName) onNotice(text.certificateNameRequired)
+      return
+    }
 
     const shareText = certificateShareText(targetId, language, text, def)
     const filename = certificateImageFilename(targetId)
@@ -1407,7 +1509,10 @@ function AchievementCard({
 
   function downloadCertificate() {
     const blob = blobRef.current
-    if (!blob || busy) return
+    if (!blob || busy || !learnerName) {
+      if (!learnerName) onNotice(text.certificateNameRequired)
+      return
+    }
     setBusy('download')
     try {
       downloadBlob(blob, certificateImageFilename(targetId))
@@ -1428,6 +1533,7 @@ function AchievementCard({
         language={language}
         text={text}
         def={def}
+        learnerName={learnerName}
         compact
       />
       <div className="achievement-card-actions">
@@ -1440,19 +1546,21 @@ function AchievementCard({
             type="button"
             className="primary-btn"
             onClick={shareCertificate}
-            disabled={!imageReady || busy !== null}
+            disabled={!canShareOrDownload || busy !== null}
           >
-            {!imageReady
-              ? text.certificateSharing
-              : busy === 'share'
+            {!learnerName
+              ? text.certificateNamePlaceholder
+              : !imageReady
                 ? text.certificateSharing
-                : text.certificateShare}
+                : busy === 'share'
+                  ? text.certificateSharing
+                  : text.certificateShare}
           </button>
           <button
             type="button"
             className="secondary-btn"
             onClick={downloadCertificate}
-            disabled={!imageReady || busy !== null}
+            disabled={!canShareOrDownload || busy !== null}
           >
             {busy === 'download'
               ? text.certificateDownloading
@@ -1757,7 +1865,9 @@ function SeriesScreen({
 
       {isComplete ? (
         <section className="certificate-banner">
-          <p dir="auto">{text.certificateBody(seriesTitle(def, language))}</p>
+          <p dir="auto">
+            {text.certificateBannerText(seriesTitle(def, language))}
+          </p>
           <div className="certificate-banner-actions">
             <button
               type="button"
