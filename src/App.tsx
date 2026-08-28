@@ -49,7 +49,8 @@ import {
   canShareImageFiles,
   downloadBlob,
   formatShareText,
-  shareContent,
+  prefetchAppIconBlob,
+  shareApp,
   shareImageFile,
   shareImageWithoutSecureContext,
   type ShareResult,
@@ -187,6 +188,10 @@ function App() {
   }, [])
 
   useEffect(() => {
+    prefetchAppIconBlob()
+  }, [])
+
+  useEffect(() => {
     if (getDeferredInstallPrompt()) setInstallReady(true)
 
     const onBeforeInstall = (event: Event) => {
@@ -291,13 +296,13 @@ function App() {
   }
 
   async function handleShareApp() {
-    const result = await shareContent({
+    const result = await shareApp({
       title: text.shareAppTitle,
       text: text.shareAppMessage,
     })
-    if (result === 'copied') setShareNotice(text.shareCopied)
-    else if (result === 'failed') setShareNotice(text.shareFailed)
-    if (result === 'copied' || result === 'failed') {
+    const message = noticeForAppShare(result, text)
+    if (message) {
+      setShareNotice(message)
       window.setTimeout(() => setShareNotice(null), 2800)
     }
   }
@@ -636,6 +641,16 @@ function buildCertificateImageContent(
     closing: text.certificateClosing,
     rtl: language === 'ar',
   }
+}
+
+function noticeForAppShare(result: ShareResult, text: Text): string | null {
+  if (result === 'shared' || result === 'cancelled') return null
+  if (result === 'copied') return text.shareCopied
+  if (result === 'downloaded') return text.shareImageDownloaded
+  if (result === 'opened') return text.certificateShareImageOpened
+  if (result === 'saved_and_copied') return text.certificateShareSavedAndCopied
+  if (result === 'opened_and_copied') return text.certificateShareOpenedAndCopied
+  return text.shareFailed
 }
 
 function noticeForCertificateShare(result: ShareResult, text: Text): string | null {

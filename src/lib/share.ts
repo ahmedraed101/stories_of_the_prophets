@@ -47,6 +47,73 @@ export function formatShareText(text: string, url?: string): string {
   return `${text}\n\n${link}`
 }
 
+const APP_ICON_PATH = '/pwa-512.png'
+const APP_ICON_FILENAME = 'stories-of-the-prophets-icon.png'
+
+let cachedAppIconBlob: Blob | null = null
+let appIconBlobPromise: Promise<Blob> | null = null
+
+export function prefetchAppIconBlob(): void {
+  if (cachedAppIconBlob || appIconBlobPromise) return
+  appIconBlobPromise = fetch(APP_ICON_PATH)
+    .then((response) => {
+      if (!response.ok) throw new Error('Failed to load app icon')
+      return response.blob()
+    })
+    .then((blob) => {
+      cachedAppIconBlob = blob
+      return blob
+    })
+    .catch(() => {
+      appIconBlobPromise = null
+      throw new Error('Failed to load app icon')
+    })
+}
+
+export function getCachedAppIconBlob(): Blob | null {
+  return cachedAppIconBlob
+}
+
+export async function ensureAppIconBlob(): Promise<Blob | null> {
+  if (cachedAppIconBlob) return cachedAppIconBlob
+  prefetchAppIconBlob()
+  if (!appIconBlobPromise) return null
+  try {
+    return await appIconBlobPromise
+  } catch {
+    return null
+  }
+}
+
+export async function shareApp(options: {
+  title: string
+  text: string
+  url?: string
+}): Promise<ShareResult> {
+  const shareText = formatShareText(options.text, options.url)
+  const blob = getCachedAppIconBlob() ?? (await ensureAppIconBlob())
+
+  if (blob) {
+    if (!window.isSecureContext) {
+      return shareImageWithoutSecureContext({
+        blob,
+        filename: APP_ICON_FILENAME,
+        text: shareText,
+      })
+    }
+
+    const imageResult = await shareImageFile({
+      blob,
+      filename: APP_ICON_FILENAME,
+      title: options.title,
+      text: shareText,
+    })
+    if (imageResult !== 'failed') return imageResult
+  }
+
+  return shareContent(options)
+}
+
 export function copyTextFallback(text: string): boolean {
   try {
     const textarea = document.createElement('textarea')
