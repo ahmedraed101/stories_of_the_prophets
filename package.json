@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:https": "HTTPS=1 vite",
+    "dev": "vite --host",
+    "dev:https": "HTTPS=1 vite --host",
     "build": "npm run generate:icons && tsc -b && vite build",
     "generate:icons": "node scripts/generate-icons.mjs",
     "lint": "oxlint",

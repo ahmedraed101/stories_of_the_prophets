@@ -46,7 +46,15 @@ import {
   sourceLabel,
 } from './lib/embeds'
 import { importYoutubePlaylist } from './lib/youtubePlaylist'
-import { shareContent, shareImageFile, type ShareResult } from './lib/share'
+import {
+  canShareImageFiles,
+  downloadBlob,
+  formatShareText,
+  shareContent,
+  shareImageFile,
+  shareImageWithoutSecureContext,
+  type ShareResult,
+} from './lib/share'
 import {
   certificateImageFilename,
   renderCertificateImage,
@@ -615,26 +623,73 @@ function buildCertificateImageContent(
 }
 
 function noticeForCertificateShare(result: ShareResult, text: Text): string | null {
+  if (result === 'shared') return null
+  if (result === 'cancelled') return null
+  if (result === 'copied') return text.shareCopied
   if (result === 'downloaded') return text.shareImageDownloaded
-  if (result === 'failed') return text.shareFailed
-  return null
+  if (result === 'opened') return text.certificateShareImageOpened
+  if (result === 'saved_and_copied') return text.certificateShareSavedAndCopied
+  if (result === 'opened_and_copied') return text.certificateShareOpenedAndCopied
+  return text.certificateShareFailedUseDownload
 }
 
-async function shareCertificateAsImage(
+function certificateShareText(
+  targetId: string,
+  language: Language,
+  text: Text,
+  def: ReturnType<typeof seriesDefById>,
+) {
+  const payload = certificateSharePayload(targetId, language, text, def)
+  return formatShareText(payload.text)
+}
+
+function useCertificateBlob(
+  targetId: string,
+  language: Language,
+  text: Text,
+  def: ReturnType<typeof seriesDefById>,
+) {
+  const blobRef = useRef<Blob | null>(null)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setReady(false)
+    blobRef.current = null
+
+    renderCertificateImage(
+      buildCertificateImageContent(targetId, language, text, def),
+    )
+      .then((blob) => {
+        if (cancelled) return
+        blobRef.current = blob
+        setReady(true)
+      })
+      .catch(() => {
+        if (!cancelled) setReady(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [targetId, language, text, def])
+
+  return { blobRef, ready }
+}
+
+async function shareCachedCertificateBlob(
+  blob: Blob,
   targetId: string,
   language: Language,
   text: Text,
   def: ReturnType<typeof seriesDefById>,
 ): Promise<ShareResult> {
-  const blob = await renderCertificateImage(
-    buildCertificateImageContent(targetId, language, text, def),
-  )
   const payload = certificateSharePayload(targetId, language, text, def)
   return shareImageFile({
     blob,
     filename: certificateImageFilename(targetId),
     title: payload.title,
-    text: payload.text,
+    text: formatShareText(payload.text),
   })
 }
 
@@ -699,7 +754,14 @@ function CertificateModal({
   onOpenNextSeries: (seriesId: string) => void
 }) {
   const [notice, setNotice] = useState<string | null>(null)
-  const [sharing, setSharing] = useState(false)
+  const [busy, setBusy] = useState<'share' | 'download' | null>(null)
+  const { blobRef, ready: imageReady } = useCertificateBlob(
+    targetId,
+    language,
+    text,
+    def,
+  )
+  const canShareImage = canShareImageFiles()
   const isGrand = targetId === GRAND_ACHIEVEMENT_ID
   const nextId = !isGrand ? nextSeriesId(targetId) : null
 
@@ -711,18 +773,56 @@ function CertificateModal({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  async function shareCertificate() {
-    if (sharing) return
-    setSharing(true)
+  function shareCertificate() {
+    const blob = blobRef.current
+    if (!blob || busy) return
+
+    const shareText = certificateShareText(targetId, language, text, def)
+    const filename = certificateImageFilename(targetId)
+
+    if (!window.isSecureContext) {
+      setBusy('share')
+      setNotice(null)
+      const result = shareImageWithoutSecureContext({ blob, filename, text: shareText })
+      setNotice(noticeForCertificateShare(result, text))
+      setBusy(null)
+      return
+    }
+
+    const sharePromise = shareCachedCertificateBlob(
+      blob,
+      targetId,
+      language,
+      text,
+      def,
+    )
+    setBusy('share')
+    setNotice(null)
+    void sharePromise
+      .then((result) => {
+        const message = noticeForCertificateShare(result, text)
+        if (message) setNotice(message)
+      })
+      .catch(() => {
+        setNotice(text.certificateShareFailedUseDownload)
+      })
+      .finally(() => {
+        setBusy(null)
+      })
+  }
+
+  function downloadCertificate() {
+    const blob = blobRef.current
+    if (!blob || busy) return
+    setBusy('download')
     setNotice(null)
     try {
-      const result = await shareCertificateAsImage(targetId, language, text, def)
-      const message = noticeForCertificateShare(result, text)
-      if (message) setNotice(message)
+      downloadBlob(blob, certificateImageFilename(targetId))
+      setNotice(text.shareImageDownloaded)
     } catch {
       setNotice(text.shareFailed)
     } finally {
-      setSharing(false)
+      setBusy(null)
     }
   }
 
@@ -741,15 +841,36 @@ function CertificateModal({
           def={def}
         />
         {notice ? <p className="share-notice">{notice}</p> : null}
+        {canShareImage ? (
+          <p className="certificate-share-hint">{text.certificateShareHint}</p>
+        ) : (
+          <p className="certificate-share-hint">{text.certificateShareInsecure}</p>
+        )}
         <div className="certificate-actions">
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={shareCertificate}
-            disabled={sharing}
-          >
-            {sharing ? text.certificateSharing : text.certificateShare}
-          </button>
+          <div className="certificate-actions-row">
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={shareCertificate}
+              disabled={busy !== null || !imageReady}
+            >
+              {!imageReady
+                ? text.certificateSharing
+                : busy === 'share'
+                  ? text.certificateSharing
+                  : text.certificateShare}
+            </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={downloadCertificate}
+              disabled={busy !== null || !imageReady}
+            >
+              {busy === 'download'
+                ? text.certificateDownloading
+                : text.certificateDownload}
+            </button>
+          </div>
           {nextId ? (
             <button
               type="button"
@@ -1147,23 +1268,10 @@ function AchievementsScreen({
     [library, getProgress],
   )
   const [notice, setNotice] = useState<string | null>(null)
-  const [sharingId, setSharingId] = useState<string | null>(null)
 
-  async function shareTarget(targetId: string, def: ReturnType<typeof seriesDefById>) {
-    if (sharingId) return
-    setSharingId(targetId)
-    setNotice(null)
-    try {
-      const result = await shareCertificateAsImage(targetId, language, text, def)
-      const message = noticeForCertificateShare(result, text)
-      if (message) setNotice(message)
-      if (message) window.setTimeout(() => setNotice(null), 3200)
-    } catch {
-      setNotice(text.shareFailed)
-      window.setTimeout(() => setNotice(null), 3200)
-    } finally {
-      setSharingId(null)
-    }
+  function showNotice(message: string) {
+    setNotice(message)
+    window.setTimeout(() => setNotice(null), 3200)
   }
 
   const hasAny = grandComplete || completed.length > 0
@@ -1205,9 +1313,8 @@ function AchievementsScreen({
                   language={language}
                   text={text}
                   featured
-                  sharing={sharingId === GRAND_ACHIEVEMENT_ID}
                   onView={() => onOpenCertificate(GRAND_ACHIEVEMENT_ID)}
-                  onShare={() => shareTarget(GRAND_ACHIEVEMENT_ID, null)}
+                  onNotice={showNotice}
                 />
               </li>
             ) : null}
@@ -1218,9 +1325,8 @@ function AchievementsScreen({
                   def={def}
                   language={language}
                   text={text}
-                  sharing={sharingId === def.id}
                   onView={() => onOpenCertificate(def.id)}
-                  onShare={() => shareTarget(def.id, def)}
+                  onNotice={showNotice}
                 />
               </li>
             ))}
@@ -1237,25 +1343,81 @@ function AchievementCard({
   language,
   text,
   featured = false,
-  sharing = false,
   onView,
-  onShare,
+  onNotice,
 }: {
   targetId: string
   def: ReturnType<typeof seriesDefById>
   language: Language
   text: Text
   featured?: boolean
-  sharing?: boolean
   onView: () => void
-  onShare: () => void
+  onNotice: (message: string) => void
 }) {
+  const { blobRef, ready: imageReady } = useCertificateBlob(
+    targetId,
+    language,
+    text,
+    def,
+  )
+  const [busy, setBusy] = useState<'share' | 'download' | null>(null)
   const isGrand = targetId === GRAND_ACHIEVEMENT_ID
   const title = isGrand
     ? text.certificateGrandHeading
     : def
       ? seriesTitle(def, language)
       : ''
+
+  function shareCertificate() {
+    const blob = blobRef.current
+    if (!blob || busy) return
+
+    const shareText = certificateShareText(targetId, language, text, def)
+    const filename = certificateImageFilename(targetId)
+
+    if (!window.isSecureContext) {
+      setBusy('share')
+      const result = shareImageWithoutSecureContext({ blob, filename, text: shareText })
+      const message = noticeForCertificateShare(result, text)
+      if (message) onNotice(message)
+      setBusy(null)
+      return
+    }
+
+    const sharePromise = shareCachedCertificateBlob(
+      blob,
+      targetId,
+      language,
+      text,
+      def,
+    )
+    setBusy('share')
+    void sharePromise
+      .then((result) => {
+        const message = noticeForCertificateShare(result, text)
+        if (message) onNotice(message)
+      })
+      .catch(() => {
+        onNotice(text.certificateShareFailedUseDownload)
+      })
+      .finally(() => {
+        setBusy(null)
+      })
+  }
+
+  function downloadCertificate() {
+    const blob = blobRef.current
+    if (!blob || busy) return
+    setBusy('download')
+    try {
+      downloadBlob(blob, certificateImageFilename(targetId))
+      onNotice(text.shareImageDownloaded)
+    } catch {
+      onNotice(text.shareFailed)
+    } finally {
+      setBusy(null)
+    }
+  }
 
   return (
     <article
@@ -1277,10 +1439,24 @@ function AchievementCard({
           <button
             type="button"
             className="primary-btn"
-            onClick={onShare}
-            disabled={sharing}
+            onClick={shareCertificate}
+            disabled={!imageReady || busy !== null}
           >
-            {sharing ? text.certificateSharing : text.achievementShare}
+            {!imageReady
+              ? text.certificateSharing
+              : busy === 'share'
+                ? text.certificateSharing
+                : text.certificateShare}
+          </button>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={downloadCertificate}
+            disabled={!imageReady || busy !== null}
+          >
+            {busy === 'download'
+              ? text.certificateDownloading
+              : text.certificateDownload}
           </button>
         </div>
       </div>

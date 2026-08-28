@@ -3,7 +3,15 @@ export function appUrl(): string {
   return window.location.origin + window.location.pathname
 }
 
-export type ShareResult = 'shared' | 'copied' | 'cancelled' | 'failed' | 'downloaded'
+export type ShareResult =
+  | 'shared'
+  | 'copied'
+  | 'cancelled'
+  | 'failed'
+  | 'downloaded'
+  | 'opened'
+  | 'saved_and_copied'
+  | 'opened_and_copied'
 
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
@@ -14,12 +22,32 @@ export function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url)
 }
 
+function isMobileDevice(): boolean {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
+/** Save image on disk (desktop) or open in a new tab (mobile) for long-press save. */
+export function saveImageBlob(blob: Blob, filename: string): 'downloaded' | 'opened' {
+  const url = URL.createObjectURL(blob)
+
+  if (isMobileDevice()) {
+    const opened = window.open(url, '_blank', 'noopener,noreferrer')
+    if (opened) {
+      window.setTimeout(() => URL.revokeObjectURL(url), 120_000)
+      return 'opened'
+    }
+  }
+
+  downloadBlob(blob, filename)
+  return 'downloaded'
+}
+
 export function formatShareText(text: string, url?: string): string {
   const link = url ?? appUrl()
   return `${text}\n\n${link}`
 }
 
-function copyTextFallback(text: string): boolean {
+export function copyTextFallback(text: string): boolean {
   try {
     const textarea = document.createElement('textarea')
     textarea.value = text
@@ -38,6 +66,27 @@ function copyTextFallback(text: string): boolean {
   } catch {
     return false
   }
+}
+
+export function copyShareTextSync(text: string, url?: string): boolean {
+  return copyTextFallback(formatShareText(text, url))
+}
+
+/** HTTP / non-secure fallback — must run synchronously inside the tap handler. */
+export function shareImageWithoutSecureContext(options: {
+  blob: Blob
+  filename: string
+  text: string
+}): ShareResult {
+  const saveResult = saveImageBlob(options.blob, options.filename)
+  const copied = copyTextFallback(options.text)
+
+  if (saveResult === 'opened' && copied) return 'opened_and_copied'
+  if (saveResult === 'downloaded' && copied) return 'saved_and_copied'
+  if (saveResult === 'opened') return 'opened'
+  if (saveResult === 'downloaded') return 'downloaded'
+  if (copied) return 'copied'
+  return 'failed'
 }
 
 export async function shareContent(options: {
@@ -87,31 +136,57 @@ export async function shareImageFile(options: {
   title: string
   text?: string
 }): Promise<ShareResult> {
-  const file = new File([options.blob], options.filename, { type: 'image/png' })
-  const withMeta = {
-    title: options.title,
-    text: options.text ?? options.title,
-    files: [file],
-  }
-  const filesOnly = { files: [file] }
+  const shareText = options.text ?? options.title
 
   if (typeof navigator.share === 'function') {
-    try {
-      if (!navigator.canShare || navigator.canShare(withMeta)) {
-        await navigator.share(withMeta)
+    const file = new File([options.blob], options.filename, {
+      type: 'image/png',
+      lastModified: Date.now(),
+    })
+
+    const payloads: ShareData[] = [
+      { files: [file], text: shareText },
+      { files: [file], title: options.title, text: shareText },
+      { files: [file], title: options.title },
+      { files: [file] },
+      { title: options.title, text: shareText },
+      { text: shareText },
+    ]
+
+    for (const payload of payloads) {
+      try {
+        if (typeof navigator.canShare === 'function' && !navigator.canShare(payload)) {
+          continue
+        }
+        await navigator.share(payload)
         return 'shared'
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return 'cancelled'
       }
-      if (!navigator.canShare || navigator.canShare(filesOnly)) {
-        await navigator.share(filesOnly)
-        return 'shared'
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') return 'cancelled'
     }
   }
 
-  downloadBlob(options.blob, options.filename)
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(shareText)
+      saveImageBlob(options.blob, options.filename)
+      return 'saved_and_copied'
+    } catch {
+      // Fall through.
+    }
+  }
+
+  if (copyTextFallback(shareText)) {
+    saveImageBlob(options.blob, options.filename)
+    return 'saved_and_copied'
+  }
+
+  saveImageBlob(options.blob, options.filename)
   return 'downloaded'
+}
+
+export function canShareImageFiles(): boolean {
+  return typeof navigator.share === 'function' && window.isSecureContext
 }
 
 export async function copyShareText(text: string, url?: string): Promise<boolean> {

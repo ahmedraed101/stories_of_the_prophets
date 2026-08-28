@@ -72,7 +72,20 @@ export const translations = {
       `أتممتَ مشاهدة «${series}» كاملة عبر التطبيق.`,
     certificateShareMessage: (series: string) =>
       `أتممتُ مشاهدة «${series}» عبر تطبيق قصص الأنبياء — تعلّم بلا تشتيت وتتبّع تقدّمك بهدوء. 🌙`,
-    certificateShare: 'شارك إنجازك',
+    certificateShare: 'مشاركة',
+    certificateDownload: 'تحميل الشهادة',
+    certificateShareHint:
+      'يفتح قائمة المشاركة — اختر واتساب أو أي تطبيق لإرسال الصورة مع النص.',
+    certificateShareInsecure:
+      'الاتصال غير آمن — لن تُفتح قائمة المشاركة. اضغط «مشاركة» لحفظ الصورة ونسخ النص، أو شغّل التطبيق عبر HTTPS.',
+    certificateShareFailedUseDownload:
+      'تعذر المشاركة. استخدم «تحميل الشهادة» ثم أرفق الصورة في واتساب.',
+    certificateShareSavedAndCopied:
+      'تم حفظ الصورة ونسخ النص — أرفق الصورة في واتساب والصق النص.',
+    certificateShareOpenedAndCopied:
+      'افتح تبويب الصورة، احفظها بالضغط المطوّل، ثم الصق النص في واتساب.',
+    certificateShareImageOpened:
+      'افتح تبويب الصورة واحفظها بالضغط المطوّل، ثم شاركها في واتساب.',
     certificateClose: 'إغلاق',
     certificateView: 'عرض الشهادة',
     certificateNextSeries: 'تابع السيرة النبوية',
@@ -91,8 +104,9 @@ export const translations = {
     achievementEarned: 'مكتمل',
     achievementShare: 'مشاركة',
     achievementView: 'عرض',
-    shareImageDownloaded: 'تم حفظ صورة الشهادة — يمكنك مشاركتها من المعرض',
+    shareImageDownloaded: 'تم حفظ صورة الشهادة',
     certificateSharing: 'جاري تجهيز الصورة…',
+    certificateDownloading: 'جاري التحميل…',
   },
   en: {
     brandName: 'Stories of the Prophets',
@@ -165,7 +179,20 @@ export const translations = {
       `You completed all episodes of “${series}”.`,
     certificateShareMessage: (series: string) =>
       `I completed “${series}” in the Stories of the Prophets app — focused learning without distractions. 🌙`,
-    certificateShare: 'Share your achievement',
+    certificateShare: 'Share',
+    certificateDownload: 'Download certificate',
+    certificateShareHint:
+      'Opens the share sheet — pick WhatsApp or any app to send the image with text.',
+    certificateShareInsecure:
+      'Connection is not secure — the share sheet will not open. Tap Share to save the image and copy text, or run the app over HTTPS.',
+    certificateShareFailedUseDownload:
+      'Could not share. Use Download, then attach the image in WhatsApp.',
+    certificateShareSavedAndCopied:
+      'Image saved and text copied — attach the image in WhatsApp and paste the text.',
+    certificateShareOpenedAndCopied:
+      'Open the image tab, long-press to save, then paste the text in WhatsApp.',
+    certificateShareImageOpened:
+      'Open the image tab, long-press to save, then share it in WhatsApp.',
     certificateClose: 'Close',
     certificateView: 'View certificate',
     certificateNextSeries: 'Continue with the Prophetic Biography',
@@ -185,9 +212,9 @@ export const translations = {
     achievementEarned: 'Complete',
     achievementShare: 'Share',
     achievementView: 'View',
-    shareImageDownloaded:
-      'Certificate image saved — you can share it from your gallery',
+    shareImageDownloaded: 'Certificate image saved',
     certificateSharing: 'Preparing image…',
+    certificateDownloading: 'Downloading…',
   },
 } as const
 

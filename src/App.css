@@ -1673,6 +1673,20 @@ code {
   margin-top: 1rem;
 }
 
+.certificate-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.certificate-share-hint {
+  margin: 0.75rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
 .certificate-all-done {
   margin: 0;
   padding: 0.55rem 0.2rem 0;

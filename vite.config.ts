@@ -92,6 +92,7 @@ export default defineConfig({
     }),
   ],
   server: {
+    host: true,
     proxy: {
       '/api/youtube-feed': {
         target: 'https://www.youtube.com',
