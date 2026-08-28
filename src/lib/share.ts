@@ -48,7 +48,7 @@ export function formatShareText(text: string, url?: string): string {
 }
 
 const APP_ICON_PATH = '/pwa-512.png'
-const APP_ICON_FILENAME = 'stories-of-the-prophets-icon.png'
+export const APP_ICON_FILENAME = 'stories-of-the-prophets-icon.png'
 
 let cachedAppIconBlob: Blob | null = null
 let appIconBlobPromise: Promise<Blob> | null = null
@@ -61,8 +61,9 @@ export function prefetchAppIconBlob(): void {
       return response.blob()
     })
     .then((blob) => {
-      cachedAppIconBlob = blob
-      return blob
+      cachedAppIconBlob =
+        blob.type === 'image/png' ? blob : blob.slice(0, blob.size, 'image/png')
+      return cachedAppIconBlob
     })
     .catch(() => {
       appIconBlobPromise = null
@@ -85,33 +86,19 @@ export async function ensureAppIconBlob(): Promise<Blob | null> {
   }
 }
 
-export async function shareApp(options: {
+export async function shareCachedAppIcon(options: {
+  blob: Blob
   title: string
   text: string
   url?: string
 }): Promise<ShareResult> {
   const shareText = formatShareText(options.text, options.url)
-  const blob = getCachedAppIconBlob() ?? (await ensureAppIconBlob())
-
-  if (blob) {
-    if (!window.isSecureContext) {
-      return shareImageWithoutSecureContext({
-        blob,
-        filename: APP_ICON_FILENAME,
-        text: shareText,
-      })
-    }
-
-    const imageResult = await shareImageFile({
-      blob,
-      filename: APP_ICON_FILENAME,
-      title: options.title,
-      text: shareText,
-    })
-    if (imageResult !== 'failed') return imageResult
-  }
-
-  return shareContent(options)
+  return shareImageFile({
+    blob: options.blob,
+    filename: APP_ICON_FILENAME,
+    title: options.title,
+    text: shareText,
+  })
 }
 
 export function copyTextFallback(text: string): boolean {
@@ -216,8 +203,6 @@ export async function shareImageFile(options: {
       { files: [file], title: options.title, text: shareText },
       { files: [file], title: options.title },
       { files: [file] },
-      { title: options.title, text: shareText },
-      { text: shareText },
     ]
 
     for (const payload of payloads) {

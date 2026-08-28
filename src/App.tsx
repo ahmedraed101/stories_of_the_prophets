@@ -46,11 +46,13 @@ import {
 } from './lib/embeds'
 import { importYoutubePlaylist } from './lib/youtubePlaylist'
 import {
+  APP_ICON_FILENAME,
   canShareImageFiles,
   downloadBlob,
   formatShareText,
+  getCachedAppIconBlob,
   prefetchAppIconBlob,
-  shareApp,
+  shareCachedAppIcon,
   shareImageFile,
   shareImageWithoutSecureContext,
   type ShareResult,
@@ -295,16 +297,43 @@ function App() {
     })
   }
 
-  async function handleShareApp() {
-    const result = await shareApp({
+  function handleShareApp() {
+    const blob = getCachedAppIconBlob()
+    const shareText = formatShareText(text.shareAppMessage)
+
+    if (!blob) {
+      prefetchAppIconBlob()
+      setShareNotice(text.shareIconLoading)
+      window.setTimeout(() => setShareNotice(null), 2800)
+      return
+    }
+
+    if (!window.isSecureContext) {
+      const result = shareImageWithoutSecureContext({
+        blob,
+        filename: APP_ICON_FILENAME,
+        text: shareText,
+      })
+      const message = noticeForAppShare(result, text)
+      if (message) {
+        setShareNotice(message)
+        window.setTimeout(() => setShareNotice(null), 2800)
+      }
+      return
+    }
+
+    const sharePromise = shareCachedAppIcon({
+      blob,
       title: text.shareAppTitle,
       text: text.shareAppMessage,
     })
-    const message = noticeForAppShare(result, text)
-    if (message) {
-      setShareNotice(message)
-      window.setTimeout(() => setShareNotice(null), 2800)
-    }
+    void sharePromise.then((result) => {
+      const message = noticeForAppShare(result, text)
+      if (message) {
+        setShareNotice(message)
+        window.setTimeout(() => setShareNotice(null), 2800)
+      }
+    })
   }
 
   function handleRemovePlaylist(playlistId: string) {
