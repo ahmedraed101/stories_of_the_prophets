@@ -37,20 +37,26 @@ export async function shareContent(options: {
   url?: string
 }): Promise<ShareResult> {
   const url = options.url ?? appUrl()
-  const fullText = formatShareText(options.text, url)
 
   if (typeof navigator.share === 'function') {
     try {
-      // iOS Safari handles a single `text` field more reliably than text + url.
-      const payload = { title: options.title, text: fullText }
-      if (!navigator.canShare || navigator.canShare(payload)) {
-        await navigator.share(payload)
+      const withUrl = { title: options.title, text: options.text, url }
+      const textOnly = { title: options.title, text: formatShareText(options.text, url) }
+
+      if (!navigator.canShare || navigator.canShare(withUrl)) {
+        await navigator.share(withUrl)
+        return 'shared'
+      }
+      if (!navigator.canShare || navigator.canShare(textOnly)) {
+        await navigator.share(textOnly)
         return 'shared'
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return 'cancelled'
     }
   }
+
+  const fullText = formatShareText(options.text, url)
 
   if (navigator.clipboard?.writeText) {
     try {
