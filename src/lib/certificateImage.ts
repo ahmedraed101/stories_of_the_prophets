@@ -22,7 +22,6 @@ const CERTIFICATE_FONT_SPECS = [
   '700 26px "Noto Kufi Arabic"',
   '400 22px "Noto Kufi Arabic"',
   '600 24px "Noto Kufi Arabic"',
-  '400 20px "Noto Kufi Arabic"',
 ] as const
 
 function roundRect(
@@ -226,62 +225,6 @@ export async function renderCertificateImage(
   if (!ctx) throw new Error('Canvas not supported')
 
   drawCertificate(ctx, content)
-  return canvasToBlob(canvas)
-}
-
-/** Share image with caption footer — WhatsApp ignores separate share text when files are attached. */
-export async function renderCertificateShareImage(
-  content: CertificateImageContent,
-  shareCaption: string,
-): Promise<Blob> {
-  await ensureCertificateFonts()
-
-  const captionLines = shareCaption
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-  const footerPad = 36
-  const lineHeight = 34
-  const footerHeight = footerPad * 2 + captionLines.length * lineHeight
-  const totalHeight = HEIGHT + footerHeight
-
-  const canvas = document.createElement('canvas')
-  canvas.width = WIDTH
-  canvas.height = totalHeight
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Canvas not supported')
-
-  ctx.fillStyle = '#f4efe4'
-  ctx.fillRect(0, 0, WIDTH, totalHeight)
-
-  const certCanvas = document.createElement('canvas')
-  certCanvas.width = WIDTH
-  certCanvas.height = HEIGHT
-  const certCtx = certCanvas.getContext('2d')
-  if (!certCtx) throw new Error('Canvas not supported')
-  drawCertificate(certCtx, content)
-  ctx.drawImage(certCanvas, 0, 0)
-
-  const separatorY = HEIGHT + 18
-  ctx.strokeStyle = '#d4af37'
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(96, separatorY)
-  ctx.lineTo(WIDTH - 96, separatorY)
-  ctx.stroke()
-
-  ctx.direction = content.rtl ? 'rtl' : 'ltr'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'alphabetic'
-  ctx.font = '400 20px "Noto Kufi Arabic", Amiri, sans-serif'
-  ctx.fillStyle = '#5c655f'
-
-  let y = separatorY + footerPad + 8
-  for (const line of captionLines) {
-    ctx.fillText(line, WIDTH / 2, y)
-    y += lineHeight
-  }
-
   return canvasToBlob(canvas)
 }
 

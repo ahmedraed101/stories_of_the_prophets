@@ -174,13 +174,11 @@ export async function shareCachedAppIcon(options: {
   text: string
   url?: string
 }): Promise<ShareResult> {
-  const shareText = formatShareText(options.text, options.url)
   return shareImageFile({
     blob: options.blob,
     filename: APP_ICON_FILENAME,
     title: options.title,
-    text: shareText,
-    mode: 'caption-required',
+    text: formatShareText(options.text, options.url),
   })
 }
 
@@ -267,18 +265,13 @@ export async function shareContent(options: {
   return 'failed'
 }
 
-export type ShareImageMode = 'caption-required' | 'files-first'
-
 export async function shareImageFile(options: {
   blob: Blob
   filename: string
   title: string
   text?: string
-  /** Controls whether text is mandatory or a file-only payload may be used. */
-  mode?: ShareImageMode
 }): Promise<ShareResult> {
   const shareText = options.text ?? options.title
-  const mode = options.mode ?? 'caption-required'
 
   if (typeof navigator.share === 'function') {
     const file = new File([options.blob], options.filename, {
@@ -286,63 +279,37 @@ export async function shareImageFile(options: {
       lastModified: Date.now(),
     })
 
-    const captionPayloads: ShareData[] = [
-      { files: [file], title: options.title, text: shareText },
-      { files: [file], text: shareText },
-    ]
-    const filesFirstPayloads: ShareData[] = [
-      { files: [file] },
-      { files: [file], title: options.title },
-      { files: [file], title: options.title, text: shareText },
-      { files: [file], text: shareText },
-    ]
-    if (mode === 'caption-required') {
-      try {
-        // One direct attempt preserves user activation and avoids image-only fallback.
-        await navigator.share(captionPayloads[0]!)
-        return 'shared'
-      } catch (err) {
-        const name =
-          typeof err === 'object' && err !== null
-            ? (err as { name?: string }).name
-            : undefined
-        if (name === 'AbortError') return 'cancelled'
-      }
-    } else {
-      const payload = filesFirstPayloads.find(
-        (candidate) =>
-          typeof navigator.canShare !== 'function' ||
-          navigator.canShare(candidate),
-      )
+    const payload: ShareData = {
+      files: [file],
+      title: options.title,
+      text: shareText,
+    }
 
-      if (payload) {
-        try {
-          await navigator.share(payload)
-          return 'shared'
-        } catch (err) {
-          const name =
-            typeof err === 'object' && err !== null
-              ? (err as { name?: string }).name
-              : undefined
-          if (name === 'AbortError') return 'cancelled'
-        }
-      }
+    try {
+      await navigator.share(payload)
+      return 'shared'
+    } catch (err) {
+      const name =
+        typeof err === 'object' && err !== null
+          ? (err as { name?: string }).name
+          : undefined
+      if (name === 'AbortError') return 'cancelled'
     }
   }
 
   if (navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(shareText)
-      saveImageBlob(options.blob, options.filename)
-      return 'saved_and_copied'
+      const saved = saveImageBlob(options.blob, options.filename)
+      return saved === 'opened' ? 'opened_and_copied' : 'saved_and_copied'
     } catch {
       // Fall through.
     }
   }
 
   if (copyTextFallback(shareText)) {
-    saveImageBlob(options.blob, options.filename)
-    return 'saved_and_copied'
+    const saved = saveImageBlob(options.blob, options.filename)
+    return saved === 'opened' ? 'opened_and_copied' : 'saved_and_copied'
   }
 
   saveImageBlob(options.blob, options.filename)
