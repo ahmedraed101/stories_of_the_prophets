@@ -482,11 +482,22 @@ function StickyNav({ children }: { children: ReactNode }) {
   )
 }
 
-function StickyTopbar({ children }: { children: ReactNode }) {
+function StickyHomeControls({
+  showInstall,
+  menu,
+  text,
+}: {
+  showInstall: boolean
+  menu: React.ComponentProps<typeof AppMenuButton>['menu']
+  text: Text
+}) {
   const scrolled = usePageScrolled()
   return (
-    <div className={`topbar topbar-sticky${scrolled ? ' is-scrolled' : ''}`}>
-      {children}
+    <div className={`home-sticky-controls${scrolled ? ' is-scrolled' : ''}`}>
+      {showInstall ? (
+        <InstallButton text={text} onInstall={menu.onInstall} />
+      ) : null}
+      <AppMenuButton menu={menu} />
     </div>
   )
 }
@@ -984,24 +995,28 @@ function HomeScreen({
   )
 
   return (
-    <div className="page">
-      <header className="home-hero">
-        <div className="hero-ornament" aria-hidden="true">
-          <span className="ornament-star">✦</span>
-        </div>
-        <StickyTopbar>
-          <div className="brand-block">
-            <p className="brand-eyebrow">{text.brandHonorific}</p>
-            <h1 className="brand">{text.brandName}</h1>
-            <p className="home-tagline">{text.brandTagline}</p>
+    <div className="page page-home">
+      <div className="home-shell">
+        <StickyHomeControls
+          showInstall={showInstall}
+          menu={menu}
+          text={text}
+        />
+        <header className="home-hero">
+          <div className="hero-ornament" aria-hidden="true">
+            <span className="ornament-star">✦</span>
           </div>
-          <div className="header-controls">
-            {showInstall ? (
-              <InstallButton text={text} onInstall={menu.onInstall} />
-            ) : null}
-            <AppMenuButton menu={menu} />
+          <div className="topbar">
+            <div className="brand-block">
+              <p className="brand-eyebrow">{text.brandHonorific}</p>
+              <h1 className="brand">{text.brandName}</h1>
+              <p className="home-tagline">{text.brandTagline}</p>
+            </div>
+            <div
+              className={`header-controls-spacer${showInstall ? ' header-controls-spacer-with-install' : ''}`}
+              aria-hidden="true"
+            />
           </div>
-        </StickyTopbar>
 
         {shareNotice ? (
           <p className="share-notice share-notice-inline" role="status">
@@ -1136,6 +1151,7 @@ function HomeScreen({
           })}
         </ul>
       </section>
+      </div>
     </div>
   )
 }

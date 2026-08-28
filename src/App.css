@@ -322,29 +322,49 @@ code {
   z-index: 120;
 }
 
-.topbar-sticky {
+.home-sticky-controls {
   position: sticky;
-  top: 0;
-  z-index: 200;
-  padding-block: 0.55rem 0.75rem;
-  padding-top: max(0.55rem, env(safe-area-inset-top, 0px));
-  padding-inline: 0;
-  margin-bottom: 0.35rem;
+  top: max(0.55rem, env(safe-area-inset-top, 0px));
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline-start: auto;
+  margin-bottom: -2.75rem;
+  padding: 0.25rem;
+  border-radius: 999px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 999px;
   box-shadow: none;
   transition:
     background 0.25s ease,
     border-color 0.25s ease,
-    box-shadow 0.25s ease;
+    box-shadow 0.25s ease,
+    padding 0.25s ease;
 }
 
-.topbar-sticky.is-scrolled {
-  padding-inline: 0.85rem;
+.home-sticky-controls.is-scrolled {
+  padding: 0.35rem 0.45rem;
   background: var(--surface-solid);
   border-color: var(--line);
   box-shadow: 0 6px 20px rgba(15, 36, 28, 0.08);
+}
+
+.header-controls-spacer {
+  flex-shrink: 0;
+  width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+.header-controls-spacer-with-install {
+  width: calc(2.75rem * 2 + 0.55rem);
+}
+
+:root[data-theme='dark'] .home-sticky-controls.is-scrolled {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
 }
 
 .page-series,
@@ -395,8 +415,7 @@ code {
   background: var(--surface-solid);
 }
 
-:root[data-theme='dark'] .sticky-nav.is-scrolled,
-:root[data-theme='dark'] .topbar-sticky.is-scrolled {
+:root[data-theme='dark'] .sticky-nav.is-scrolled {
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
 }
 
