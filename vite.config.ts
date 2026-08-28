@@ -1,12 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import { VitePWA } from 'vite-plugin-pwa'
+
+const useHttps = process.env.HTTPS === '1'
 
 export default defineConfig({
   plugins: [
+    ...(useHttps ? [basicSsl()] : []),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: [
         'favicon.svg',
         'pwa-192.png',
