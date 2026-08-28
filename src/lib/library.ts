@@ -63,6 +63,22 @@ function normalizePlaylists(playlists: Playlist[]): Playlist[] {
   })
 }
 
+function syncBuiltInPlaylistItems(playlists: Playlist[]): Playlist[] {
+  const seeds = seedPlaylists()
+  return playlists.map((playlist) => {
+    const seed = seeds.find((s) => s.id === playlist.id)
+    if (!seed?.builtIn) return playlist
+    return {
+      ...playlist,
+      title: seed.title,
+      subtitle: seed.subtitle,
+      description: seed.description,
+      sourceUrl: seed.sourceUrl,
+      sections: seed.sections,
+    }
+  })
+}
+
 function ensureBuiltInPlaylists(playlists: Playlist[]): Playlist[] {
   const seeds = seedPlaylists()
   const merged = [...playlists]
@@ -91,8 +107,8 @@ export function loadLibrary(): LibraryState {
     if (!Array.isArray(parsed.playlists) || parsed.playlists.length === 0) {
       return { playlists: seedPlaylists() }
     }
-    const playlists = ensureBuiltInPlaylists(
-      normalizePlaylists(parsed.playlists),
+    const playlists = syncBuiltInPlaylistItems(
+      ensureBuiltInPlaylists(normalizePlaylists(parsed.playlists)),
     )
     const next = { playlists }
     if (JSON.stringify(parsed.playlists) !== JSON.stringify(playlists)) {

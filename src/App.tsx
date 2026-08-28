@@ -302,6 +302,20 @@ function App() {
     setLibrary(addPlaylist(library, playlist))
   }
 
+  const menuProps = {
+    text,
+    language,
+    theme,
+    isInstalled,
+    playlists: library.playlists,
+    onToggleLanguage: toggleLanguage,
+    onToggleTheme: toggleTheme,
+    onInstall: handleInstall,
+    onAddPlaylist: handleAddPlaylist,
+    onRemovePlaylist: handleRemovePlaylist,
+    onShareApp: handleShareApp,
+  }
+
   let main: ReactNode = null
 
   if (activeItem && activePlaylist && activeProgress && screen.name === 'player') {
@@ -312,6 +326,7 @@ function App() {
         seriesId={screen.seriesId}
         playlistId={activePlaylist.id}
         progress={activeProgress}
+        menu={menuProps}
         onClose={() => setScreen({ name: 'series', seriesId: screen.seriesId })}
         onHome={() => setScreen({ name: 'home' })}
         onToggleComplete={() =>
@@ -336,6 +351,7 @@ function App() {
           seriesId={screen.seriesId}
           language={language}
           text={text}
+          menu={menuProps}
           getProgress={ensureProgress}
           onBack={() => setScreen({ name: 'home' })}
           onOpenItem={(playlistId, item) =>
@@ -352,6 +368,8 @@ function App() {
         library={library}
         language={language}
         text={text}
+        menu={menuProps}
+        showInstall={!isInstalled}
         getProgress={ensureProgress}
         onOpenSeries={(seriesId) => setScreen({ name: 'series', seriesId })}
         onOpenItem={openItem}
@@ -364,8 +382,6 @@ function App() {
     ? seriesDefById(library, certificateSeriesId)
     : null
 
-  const showInstallButton = screen.name === 'home' && !isInstalled
-
   return (
     <div
       className={`app-shell${screen.name === 'player' ? ' app-shell-player' : ''}`}
@@ -373,20 +389,6 @@ function App() {
       <div className="atmosphere" aria-hidden="true">
         <div className="pattern-overlay" />
       </div>
-      <GlobalAppBar
-        text={text}
-        language={language}
-        theme={theme}
-        isInstalled={isInstalled}
-        showInstall={showInstallButton}
-        playlists={library.playlists}
-        onToggleLanguage={toggleLanguage}
-        onToggleTheme={toggleTheme}
-        onInstall={handleInstall}
-        onAddPlaylist={handleAddPlaylist}
-        onRemovePlaylist={handleRemovePlaylist}
-        onShareApp={handleShareApp}
-      />
       {main}
       {!isInstalled && installHint ? (
         <div className="install-hint install-hint-fixed" role="status">
@@ -455,8 +457,38 @@ function BackIcon() {
   )
 }
 
+function usePageScrolled(threshold = 8) {
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const update = () => {
+      setScrolled(window.scrollY > threshold)
+    }
+
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    return () => window.removeEventListener('scroll', update)
+  }, [threshold])
+
+  return scrolled
+}
+
 function StickyNav({ children }: { children: ReactNode }) {
-  return <div className="sticky-nav">{children}</div>
+  const scrolled = usePageScrolled()
+  return (
+    <div className={`sticky-nav${scrolled ? ' is-scrolled' : ''}`}>
+      {children}
+    </div>
+  )
+}
+
+function StickyTopbar({ children }: { children: ReactNode }) {
+  const scrolled = usePageScrolled()
+  return (
+    <div className={`topbar topbar-sticky${scrolled ? ' is-scrolled' : ''}`}>
+      {children}
+    </div>
+  )
 }
 
 function NavChip({
@@ -569,58 +601,24 @@ function CertificateModal({
   )
 }
 
-function GlobalAppBar({
-  text,
-  language,
-  theme,
-  isInstalled,
-  showInstall,
-  playlists,
-  onToggleLanguage,
-  onToggleTheme,
-  onInstall,
-  onAddPlaylist,
-  onRemovePlaylist,
-  onShareApp,
+function AppMenuButton({
+  menu,
 }: {
-  text: Text
-  language: Language
-  theme: Theme
-  isInstalled: boolean
-  showInstall: boolean
-  playlists: Playlist[]
-  onToggleLanguage: () => void
-  onToggleTheme: () => void
-  onInstall: () => void
-  onAddPlaylist: (url: string, title?: string) => Promise<void>
-  onRemovePlaylist: (id: string) => void
-  onShareApp: () => void
+  menu: {
+    text: Text
+    language: Language
+    theme: Theme
+    isInstalled: boolean
+    playlists: Playlist[]
+    onToggleLanguage: () => void
+    onToggleTheme: () => void
+    onInstall: () => void
+    onAddPlaylist: (url: string, title?: string) => Promise<void>
+    onRemovePlaylist: (id: string) => void
+    onShareApp: () => void
+  }
 }) {
-  return (
-    <div
-      className={`global-app-bar${showInstall ? ' global-app-bar-with-install' : ''}`}
-      aria-label={text.menu}
-    >
-      <div className="global-app-bar-inner">
-        {showInstall ? (
-          <InstallButton text={text} onInstall={onInstall} />
-        ) : null}
-        <AppMenu
-          text={text}
-          language={language}
-          theme={theme}
-          isInstalled={isInstalled}
-          playlists={playlists}
-          onToggleLanguage={onToggleLanguage}
-          onToggleTheme={onToggleTheme}
-          onInstall={onInstall}
-          onAddPlaylist={onAddPlaylist}
-          onRemovePlaylist={onRemovePlaylist}
-          onShareApp={onShareApp}
-        />
-      </div>
-    </div>
-  )
+  return <AppMenu {...menu} />
 }
 
 function InstallButton({
@@ -958,6 +956,8 @@ function HomeScreen({
   library,
   language,
   text,
+  menu,
+  showInstall,
   getProgress,
   onOpenSeries,
   onOpenItem,
@@ -966,6 +966,8 @@ function HomeScreen({
   library: LibraryState
   language: Language
   text: Text
+  menu: React.ComponentProps<typeof AppMenuButton>['menu']
+  showInstall: boolean
   getProgress: (id: string) => ProgressState
   onOpenSeries: (seriesId: string) => void
   onOpenItem: (seriesId: string, playlistId: string, item: MediaItem) => void
@@ -987,13 +989,19 @@ function HomeScreen({
         <div className="hero-ornament" aria-hidden="true">
           <span className="ornament-star">✦</span>
         </div>
-        <div className="topbar">
-          <div className="brand-block brand-block-with-app-bar">
+        <StickyTopbar>
+          <div className="brand-block">
             <p className="brand-eyebrow">{text.brandHonorific}</p>
             <h1 className="brand">{text.brandName}</h1>
             <p className="home-tagline">{text.brandTagline}</p>
           </div>
-        </div>
+          <div className="header-controls">
+            {showInstall ? (
+              <InstallButton text={text} onInstall={menu.onInstall} />
+            ) : null}
+            <AppMenuButton menu={menu} />
+          </div>
+        </StickyTopbar>
 
         {shareNotice ? (
           <p className="share-notice share-notice-inline" role="status">
@@ -1137,6 +1145,7 @@ function SeriesScreen({
   seriesId,
   language,
   text,
+  menu,
   getProgress,
   onBack,
   onOpenItem,
@@ -1147,6 +1156,7 @@ function SeriesScreen({
   seriesId: string
   language: Language
   text: Text
+  menu: React.ComponentProps<typeof AppMenuButton>['menu']
   getProgress: (id: string) => ProgressState
   onBack: () => void
   onOpenItem: (playlistId: string, item: MediaItem) => void
@@ -1186,6 +1196,9 @@ function SeriesScreen({
             <BackIcon />
             <span>{text.home}</span>
           </NavChip>
+          <div className="sticky-nav-tools">
+            <AppMenuButton menu={menu} />
+          </div>
         </div>
       </StickyNav>
 
@@ -1383,6 +1396,7 @@ function PlayerView({
   onToggleComplete,
   onNavigate,
   text,
+  menu,
 }: {
   item: MediaItem
   library: LibraryState
@@ -1394,6 +1408,7 @@ function PlayerView({
   onToggleComplete: () => void
   onNavigate: (target: CatalogItem) => void
   text: Text
+  menu: React.ComponentProps<typeof AppMenuButton>['menu']
 }) {
   const embedSrc = getEmbedSrc(item)
   const watchUrl = getWatchUrl(item)
@@ -1428,13 +1443,16 @@ function PlayerView({
           <p className="player-position" dir="ltr">
             {index + 1} / {total}
           </p>
-          <NavChip
-            onClick={onHome}
-            ariaLabel={text.home}
-            className="player-nav-home nav-chip-icon"
-          >
-            <HomeIcon />
-          </NavChip>
+          <div className="sticky-nav-tools player-nav-tools">
+            <NavChip
+              onClick={onHome}
+              ariaLabel={text.home}
+              className="player-nav-home nav-chip-icon"
+            >
+              <HomeIcon />
+            </NavChip>
+            <AppMenuButton menu={menu} />
+          </div>
         </div>
       </StickyNav>
 
@@ -1464,23 +1482,28 @@ function PlayerView({
         <h1 dir="auto">{item.title}</h1>
         <p className="item-meta">{sourceLabel(item.source)}</p>
         <div className="player-actions">
-          <div className="action-btns">
-            <button
-              type="button"
-              className={`primary-btn${done ? ' is-done' : ''}`}
-              onClick={onToggleComplete}
-            >
+          <button
+            type="button"
+            className={`complete-btn${done ? ' is-complete' : ''}`}
+            onClick={onToggleComplete}
+            aria-pressed={done}
+          >
+            <span className="complete-btn-icon" aria-hidden="true">
+              {done ? (
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+              )}
+            </span>
+            <span className="complete-btn-label">
               {done ? text.completed : text.markComplete}
-            </button>
-            <a
-              className="secondary-btn"
-              href={watchUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {text.watchOnSource}
-            </a>
-          </div>
+            </span>
+            <span className="complete-btn-shine" aria-hidden="true" />
+          </button>
           <div className="nav-btns">
             <button
               type="button"
