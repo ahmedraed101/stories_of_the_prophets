@@ -180,7 +180,7 @@ export async function shareCachedAppIcon(options: {
     filename: APP_ICON_FILENAME,
     title: options.title,
     text: shareText,
-    mode: 'files-first',
+    mode: 'caption-required',
   })
 }
 
@@ -274,7 +274,7 @@ export async function shareImageFile(options: {
   filename: string
   title: string
   text?: string
-  /** Certificate share keeps caption; app icon share prefers image-only. */
+  /** Controls whether text is mandatory or a file-only payload may be used. */
   mode?: ShareImageMode
 }): Promise<ShareResult> {
   const shareText = options.text ?? options.title
@@ -287,9 +287,8 @@ export async function shareImageFile(options: {
     })
 
     const captionPayloads: ShareData[] = [
-      { files: [file], text: shareText },
       { files: [file], title: options.title, text: shareText },
-      { files: [file], title: shareText },
+      { files: [file], text: shareText },
     ]
     const filesFirstPayloads: ShareData[] = [
       { files: [file] },
@@ -297,22 +296,36 @@ export async function shareImageFile(options: {
       { files: [file], title: options.title, text: shareText },
       { files: [file], text: shareText },
     ]
-    const payloads = mode === 'files-first' ? filesFirstPayloads : captionPayloads
-    const skipCanShare = mode === 'caption-required'
-
-    for (const payload of payloads) {
+    if (mode === 'caption-required') {
       try {
-        if (
-          !skipCanShare &&
-          typeof navigator.canShare === 'function' &&
-          !navigator.canShare(payload)
-        ) {
-          continue
-        }
-        await navigator.share(payload)
+        // One direct attempt preserves user activation and avoids image-only fallback.
+        await navigator.share(captionPayloads[0]!)
         return 'shared'
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return 'cancelled'
+        const name =
+          typeof err === 'object' && err !== null
+            ? (err as { name?: string }).name
+            : undefined
+        if (name === 'AbortError') return 'cancelled'
+      }
+    } else {
+      const payload = filesFirstPayloads.find(
+        (candidate) =>
+          typeof navigator.canShare !== 'function' ||
+          navigator.canShare(candidate),
+      )
+
+      if (payload) {
+        try {
+          await navigator.share(payload)
+          return 'shared'
+        } catch (err) {
+          const name =
+            typeof err === 'object' && err !== null
+              ? (err as { name?: string }).name
+              : undefined
+          if (name === 'AbortError') return 'cancelled'
+        }
       }
     }
   }
