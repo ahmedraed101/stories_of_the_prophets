@@ -1,22 +1,28 @@
-# Stories of the Prophets
+# قصص الأنبياء — Stories of the Prophets
 
-Focused media collection for learning the stories of the prophets — without distraction, with progress tracking.
+Focused PWA for learning **Stories of the Prophets** and the **Prophetic Biography** (Sheikh Nabil Al-Awadi) — without distraction, with progress tracking.
 
-## Status
+Customized from [`focus-media`](../focus-media).
 
-This repo will be created as a customized copy of [`focus-media`](../focus-media), the general reusable template.
+## Collections
 
-**Do not develop features here yet.** Build and stabilize the general app first, then copy it over and customize:
+| Collection | Content |
+|------------|---------|
+| **قصص الأنبياء** | [Season 1](https://www.youtube.com/playlist?list=PLf_PY1EEFtdmykuAZ_99TLqVBP7FFmrIS) + [Season 2](https://www.youtube.com/playlist?list=PLbDRORmj0gyevDGklUqlVqkxhulsF6IDq) merged (63 episodes) |
+| **السيرة النبوية** | [Prophetic Biography HD](https://www.youtube.com/playlist?list=PLbDRORmj0gydAp_9O0Vc4fq4qE3zmrTdw) (30 episodes) |
 
-1. Content / playlists (YouTube and other embeddable sources)
-2. Branding, titles, and copy
-3. Ordering / sections for the prophets’ stories
+Additional playlists can be added from **menu → Manage playlists**.
 
-## Plan
+## Development
 
 ```bash
-# After focus-media is ready:
-rm -rf stories-of-the-prophets/*   # keep .git
-cp -R ../focus-media/* .
-# then customize content.json / branding
+npm install
+npm run dev
+```
+
+## Build
+
+```bash
+npm run build
+npm run preview
 ```
