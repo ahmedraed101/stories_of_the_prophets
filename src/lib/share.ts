@@ -180,6 +180,7 @@ export async function shareCachedAppIcon(options: {
     filename: APP_ICON_FILENAME,
     title: options.title,
     text: shareText,
+    preferFilesOnly: true,
   })
 }
 
@@ -271,6 +272,8 @@ export async function shareImageFile(options: {
   filename: string
   title: string
   text?: string
+  /** App icon share: file-only first (WhatsApp drops image when text is included). */
+  preferFilesOnly?: boolean
 }): Promise<ShareResult> {
   const shareText = options.text ?? options.title
 
@@ -280,13 +283,19 @@ export async function shareImageFile(options: {
       lastModified: Date.now(),
     })
 
-    // File-only payloads first — some apps (e.g. WhatsApp) drop the image when text is included.
-    const payloads: ShareData[] = [
+    const withText: ShareData[] = [
+      { files: [file], text: shareText },
+      { files: [file], title: options.title, text: shareText },
+      { files: [file], title: options.title },
+      { files: [file] },
+    ]
+    const filesFirst: ShareData[] = [
       { files: [file] },
       { files: [file], title: options.title },
       { files: [file], title: options.title, text: shareText },
       { files: [file], text: shareText },
     ]
+    const payloads = options.preferFilesOnly ? filesFirst : withText
 
     for (const payload of payloads) {
       try {
