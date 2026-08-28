@@ -43,6 +43,14 @@ import {
 } from './lib/embeds'
 import { importYoutubePlaylist } from './lib/youtubePlaylist'
 import { shareContent } from './lib/share'
+import {
+  canNativeInstall,
+  captureInstallPrompt,
+  clearDeferredInstallPrompt,
+  getDeferredInstallPrompt,
+  isStandaloneApp,
+  runInstallPrompt,
+} from './lib/pwaInstall'
 import { translations, type Language, type Text } from './lib/i18n'
 import './App.css'
 
@@ -51,11 +59,6 @@ type Screen =
   | { name: 'home' }
   | { name: 'series'; seriesId: string }
   | { name: 'player'; seriesId: string; playlistId: string; itemId: string }
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
 
 const STORAGE_THEME = 'stories-prophets:theme'
 const STORAGE_LANGUAGE = 'stories-prophets:language'
@@ -97,21 +100,15 @@ function App() {
       systemTheme(),
   )
   const [language, setLanguage] = useState<Language>(storedLanguage)
-  const [installPrompt, setInstallPrompt] =
-    useState<BeforeInstallPromptEvent | null>(null)
+  const [installReady, setInstallReady] = useState(
+    () => canNativeInstall() && !isStandaloneApp(),
+  )
   const [installHint, setInstallHint] = useState<string | null>(null)
   const [certificateSeriesId, setCertificateSeriesId] = useState<string | null>(
     null,
   )
   const [shareNotice, setShareNotice] = useState<string | null>(null)
-  const [isInstalled, setIsInstalled] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return (
-      window.matchMedia('(display-mode: standalone)').matches ||
-      ('standalone' in navigator &&
-        Boolean((navigator as Navigator & { standalone?: boolean }).standalone))
-    )
-  })
+  const [isInstalled, setIsInstalled] = useState(() => isStandaloneApp())
   const text = translations[language]
 
   const activePlaylist = useMemo(() => {
@@ -171,13 +168,17 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (getDeferredInstallPrompt()) setInstallReady(true)
+
     const onBeforeInstall = (event: Event) => {
-      event.preventDefault()
-      setInstallPrompt(event as BeforeInstallPromptEvent)
+      captureInstallPrompt(event)
+      setInstallReady(true)
     }
     const onInstalled = () => {
-      setInstallPrompt(null)
+      clearDeferredInstallPrompt()
+      setInstallReady(false)
       setIsInstalled(true)
+      setInstallHint(null)
     }
     window.addEventListener('beforeinstallprompt', onBeforeInstall)
     window.addEventListener('appinstalled', onInstalled)
@@ -207,12 +208,33 @@ function App() {
     setLanguage((current) => (current === 'ar' ? 'en' : 'ar'))
   }
 
-  async function installApp() {
-    if (!installPrompt) return
-    await installPrompt.prompt()
-    const choice = await installPrompt.userChoice
-    if (choice.outcome === 'accepted') setIsInstalled(true)
-    setInstallPrompt(null)
+  async function handleInstall() {
+    if (installReady && canNativeInstall()) {
+      const outcome = await runInstallPrompt()
+      if (outcome === 'accepted') {
+        setIsInstalled(true)
+        setInstallReady(false)
+        setInstallHint(null)
+        return
+      }
+      if (outcome === 'dismissed') {
+        setInstallReady(false)
+        return
+      }
+    }
+
+    const ua = navigator.userAgent
+    const isIos =
+      /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    const isAndroid = /Android/i.test(ua)
+    setInstallHint(
+      isIos
+        ? text.installHintIos
+        : isAndroid
+          ? text.installHintAndroid
+          : text.installHintGeneric,
+    )
   }
 
   function openItem(seriesId: string, playlistId: string, item: MediaItem) {
@@ -280,26 +302,6 @@ function App() {
     setLibrary(addPlaylist(library, playlist))
   }
 
-  async function handleInstall() {
-    if (installPrompt) {
-      await installApp()
-      setInstallHint(null)
-      return
-    }
-    const ua = navigator.userAgent
-    const isIos =
-      /iPad|iPhone|iPod/.test(ua) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-    const isAndroid = /Android/i.test(ua)
-    setInstallHint(
-      isIos
-        ? text.installHintIos
-        : isAndroid
-          ? text.installHintAndroid
-          : text.installHintGeneric,
-    )
-  }
-
   let main: ReactNode = null
 
   if (activeItem && activePlaylist && activeProgress && screen.name === 'player') {
@@ -350,19 +352,9 @@ function App() {
         library={library}
         language={language}
         text={text}
-        isInstalled={isInstalled}
-        installHint={installHint}
-        onDismissInstallHint={() => setInstallHint(null)}
         getProgress={ensureProgress}
         onOpenSeries={(seriesId) => setScreen({ name: 'series', seriesId })}
         onOpenItem={openItem}
-        onInstall={handleInstall}
-        onAddPlaylist={handleAddPlaylist}
-        onRemovePlaylist={handleRemovePlaylist}
-        onToggleTheme={toggleTheme}
-        onToggleLanguage={toggleLanguage}
-        theme={theme}
-        onShareApp={handleShareApp}
         shareNotice={shareNotice}
       />
     )
@@ -372,6 +364,8 @@ function App() {
     ? seriesDefById(library, certificateSeriesId)
     : null
 
+  const showInstallButton = screen.name === 'home' && !isInstalled
+
   return (
     <div
       className={`app-shell${screen.name === 'player' ? ' app-shell-player' : ''}`}
@@ -379,7 +373,33 @@ function App() {
       <div className="atmosphere" aria-hidden="true">
         <div className="pattern-overlay" />
       </div>
+      <GlobalAppBar
+        text={text}
+        language={language}
+        theme={theme}
+        isInstalled={isInstalled}
+        showInstall={showInstallButton}
+        playlists={library.playlists}
+        onToggleLanguage={toggleLanguage}
+        onToggleTheme={toggleTheme}
+        onInstall={handleInstall}
+        onAddPlaylist={handleAddPlaylist}
+        onRemovePlaylist={handleRemovePlaylist}
+        onShareApp={handleShareApp}
+      />
       {main}
+      {!isInstalled && installHint ? (
+        <div className="install-hint install-hint-fixed" role="status">
+          <p>{installHint}</p>
+          <button
+            type="button"
+            className="text-btn"
+            onClick={() => setInstallHint(null)}
+          >
+            OK
+          </button>
+        </div>
+      ) : null}
       {certificateDef && certificateSeriesId ? (
         <CertificateModal
           seriesId={certificateSeriesId}
@@ -412,6 +432,25 @@ function HomeIcon() {
     >
       <path d="M4 10.5 12 4l8 6.5" />
       <path d="M6 9.5V19a1 1 0 0 0 1 1h3v-5h4v5h3a1 1 0 0 0 1-1V9.5" />
+    </svg>
+  )
+}
+
+function BackIcon() {
+  return (
+    <svg
+      className="back-icon"
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M15 6l-6 6 6 6" />
     </svg>
   )
 }
@@ -530,6 +569,60 @@ function CertificateModal({
   )
 }
 
+function GlobalAppBar({
+  text,
+  language,
+  theme,
+  isInstalled,
+  showInstall,
+  playlists,
+  onToggleLanguage,
+  onToggleTheme,
+  onInstall,
+  onAddPlaylist,
+  onRemovePlaylist,
+  onShareApp,
+}: {
+  text: Text
+  language: Language
+  theme: Theme
+  isInstalled: boolean
+  showInstall: boolean
+  playlists: Playlist[]
+  onToggleLanguage: () => void
+  onToggleTheme: () => void
+  onInstall: () => void
+  onAddPlaylist: (url: string, title?: string) => Promise<void>
+  onRemovePlaylist: (id: string) => void
+  onShareApp: () => void
+}) {
+  return (
+    <div
+      className={`global-app-bar${showInstall ? ' global-app-bar-with-install' : ''}`}
+      aria-label={text.menu}
+    >
+      <div className="global-app-bar-inner">
+        {showInstall ? (
+          <InstallButton text={text} onInstall={onInstall} />
+        ) : null}
+        <AppMenu
+          text={text}
+          language={language}
+          theme={theme}
+          isInstalled={isInstalled}
+          playlists={playlists}
+          onToggleLanguage={onToggleLanguage}
+          onToggleTheme={onToggleTheme}
+          onInstall={onInstall}
+          onAddPlaylist={onAddPlaylist}
+          onRemovePlaylist={onRemovePlaylist}
+          onShareApp={onShareApp}
+        />
+      </div>
+    </div>
+  )
+}
+
 function InstallButton({
   text,
   onInstall,
@@ -565,6 +658,58 @@ function InstallButton({
   )
 }
 
+function ConfirmDialog({
+  title,
+  message,
+  confirmLabel,
+  cancelLabel,
+  onConfirm,
+  onCancel,
+}: {
+  title: string
+  message: string
+  confirmLabel: string
+  cancelLabel: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel])
+
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onCancel}>
+      <div
+        className="confirm-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-message"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="confirm-dialog-title" className="confirm-dialog-title" dir="auto">
+          {title}
+        </h3>
+        <p id="confirm-dialog-message" className="confirm-dialog-message" dir="auto">
+          {message}
+        </p>
+        <div className="confirm-dialog-actions">
+          <button type="button" className="secondary-btn" onClick={onCancel}>
+            {cancelLabel}
+          </button>
+          <button type="button" className="danger-btn" onClick={onConfirm}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AppMenu({
   text,
   language,
@@ -576,6 +721,7 @@ function AppMenu({
   onInstall,
   onAddPlaylist,
   onRemovePlaylist,
+  onShareApp,
 }: {
   text: Text
   language: Language
@@ -595,6 +741,7 @@ function AppMenu({
   const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingRemove, setPendingRemove] = useState<Playlist | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -777,7 +924,7 @@ function AppMenu({
                       <button
                         type="button"
                         className="danger-btn"
-                        onClick={() => onRemovePlaylist(playlist.id)}
+                        onClick={() => setPendingRemove(playlist)}
                       >
                         {text.remove}
                       </button>
@@ -789,6 +936,20 @@ function AppMenu({
           ) : null}
         </div>
       ) : null}
+
+      {pendingRemove ? (
+        <ConfirmDialog
+          title={text.removePlaylistTitle}
+          message={text.removePlaylistConfirm(pendingRemove.title)}
+          confirmLabel={text.confirmRemove}
+          cancelLabel={text.cancel}
+          onConfirm={() => {
+            onRemovePlaylist(pendingRemove.id)
+            setPendingRemove(null)
+          }}
+          onCancel={() => setPendingRemove(null)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -797,36 +958,17 @@ function HomeScreen({
   library,
   language,
   text,
-  theme,
-  isInstalled,
-  installHint,
-  onDismissInstallHint,
   getProgress,
   onOpenSeries,
   onOpenItem,
-  onInstall,
-  onAddPlaylist,
-  onRemovePlaylist,
-  onToggleTheme,
-  onToggleLanguage,
-  onShareApp,
+  shareNotice,
 }: {
   library: LibraryState
   language: Language
   text: Text
-  theme: Theme
-  isInstalled: boolean
-  installHint: string | null
-  onDismissInstallHint: () => void
   getProgress: (id: string) => ProgressState
   onOpenSeries: (seriesId: string) => void
   onOpenItem: (seriesId: string, playlistId: string, item: MediaItem) => void
-  onInstall: () => void
-  onAddPlaylist: (url: string, title?: string) => Promise<void>
-  onRemovePlaylist: (id: string) => void
-  onToggleTheme: () => void
-  onToggleLanguage: () => void
-  onShareApp: () => void
   shareNotice: string | null
 }) {
   const stats = allSeriesProgressStats(library, getProgress)
@@ -846,28 +988,10 @@ function HomeScreen({
           <span className="ornament-star">✦</span>
         </div>
         <div className="topbar">
-          <div className="brand-block">
+          <div className="brand-block brand-block-with-app-bar">
             <p className="brand-eyebrow">{text.brandHonorific}</p>
             <h1 className="brand">{text.brandName}</h1>
             <p className="home-tagline">{text.brandTagline}</p>
-          </div>
-          <div className="header-controls">
-            {!isInstalled ? (
-              <InstallButton text={text} onInstall={onInstall} />
-            ) : null}
-            <AppMenu
-              text={text}
-              language={language}
-              theme={theme}
-              isInstalled={isInstalled}
-              playlists={library.playlists}
-              onToggleLanguage={onToggleLanguage}
-              onToggleTheme={onToggleTheme}
-              onInstall={onInstall}
-              onAddPlaylist={onAddPlaylist}
-              onRemovePlaylist={onRemovePlaylist}
-              onShareApp={onShareApp}
-            />
           </div>
         </div>
 
@@ -875,19 +999,6 @@ function HomeScreen({
           <p className="share-notice share-notice-inline" role="status">
             {shareNotice}
           </p>
-        ) : null}
-
-        {installHint ? (
-          <div className="install-hint" role="status">
-            <p>{installHint}</p>
-            <button
-              type="button"
-              className="text-btn"
-              onClick={onDismissInstallHint}
-            >
-              OK
-            </button>
-          </div>
         ) : null}
 
         <div className="progress-panel home-progress">
@@ -1072,9 +1183,7 @@ function SeriesScreen({
       <StickyNav>
         <div className="sticky-nav-inner">
           <NavChip onClick={onBack} ariaLabel={text.home}>
-            <span className="back-arrow" aria-hidden="true">
-              ←
-            </span>
+            <BackIcon />
             <span>{text.home}</span>
           </NavChip>
         </div>
@@ -1196,7 +1305,7 @@ function SeriesScreen({
                   <li key={`${section.playlistId}-${item.id}`}>
                     <button
                       type="button"
-                      className={`item-row${itemProgress.completed ? ' is-complete' : ''}`}
+                      className={`item-row${itemProgress.completed ? ' is-done' : ''}${itemProgress.lastOpenedAt && !itemProgress.completed ? ' is-started' : ''}`}
                       onClick={() => onOpenItem(section.playlistId, item)}
                     >
                       <span className="item-thumb">
@@ -1217,7 +1326,7 @@ function SeriesScreen({
                           />
                         )}
                         {itemProgress.completed ? (
-                          <span className="item-status" aria-hidden="true">
+                          <span className="item-status is-done" aria-hidden="true">
                             ✓
                           </span>
                         ) : null}
@@ -1227,11 +1336,23 @@ function SeriesScreen({
                           {item.title}
                         </span>
                         <span className="item-meta">
-                          {sourceLabel(item.source)}
-                          {itemProgress.lastOpenedAt &&
-                          !itemProgress.completed
-                            ? ` · ${text.started}`
-                            : ''}
+                          {itemProgress.completed ? (
+                            <span className="item-badge item-badge-done">
+                              {text.completed}
+                            </span>
+                          ) : null}
+                          {!itemProgress.completed ? (
+                            <>
+                              {sourceLabel(item.source)}
+                              {itemProgress.lastOpenedAt
+                                ? ` · ${text.started}`
+                                : ''}
+                            </>
+                          ) : (
+                            <span className="item-meta-source">
+                              {sourceLabel(item.source)}
+                            </span>
+                          )}
                         </span>
                         <span className="sr-only">
                           {itemProgress.completed
@@ -1296,18 +1417,24 @@ function PlayerView({
     <div className="player-page">
       <StickyNav>
         <div className="sticky-nav-inner player-sticky-nav">
-          <NavChip onClick={onClose} ariaLabel={text.back}>
-            <span className="back-arrow" aria-hidden="true">
-              ←
-            </span>
+          <NavChip
+            onClick={onClose}
+            ariaLabel={text.back}
+            className="player-nav-back"
+          >
+            <BackIcon />
             <span>{text.back}</span>
           </NavChip>
-          <NavChip onClick={onHome} ariaLabel={text.home} className="nav-chip-icon">
-            <HomeIcon />
-          </NavChip>
-          <p className="player-position">
+          <p className="player-position" dir="ltr">
             {index + 1} / {total}
           </p>
+          <NavChip
+            onClick={onHome}
+            ariaLabel={text.home}
+            className="player-nav-home nav-chip-icon"
+          >
+            <HomeIcon />
+          </NavChip>
         </div>
       </StickyNav>
 
