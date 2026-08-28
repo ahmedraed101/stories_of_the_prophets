@@ -42,7 +42,7 @@ function parseAtomFeed(xml: string, playlistId: string): Playlist {
       title,
       source: 'youtube',
       url: `https://www.youtube.com/watch?v=${videoId}`,
-      thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+      thumbnail: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
     })
   }
 

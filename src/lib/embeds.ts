@@ -69,12 +69,35 @@ export function getEmbedSrc(item: MediaItem): string | null {
   }
 }
 
+/** YouTube hqdefault/sddefault are 4:3 with letterboxing; mqdefault is true 16:9. */
+export function youtubeThumbnail(
+  videoId: string,
+  size: 'mqdefault' | 'maxresdefault' = 'mqdefault',
+): string {
+  return `https://i.ytimg.com/vi/${videoId}/${size}.jpg`
+}
+
+function normalizeYoutubeThumbnailUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    if (!u.hostname.includes('ytimg.com')) return url
+    const match = u.pathname.match(/\/vi\/([^/]+)\//)
+    if (!match) return url
+    if (/\/(hqdefault|sddefault|default|1|2|3)\.jpg$/i.test(u.pathname)) {
+      return youtubeThumbnail(match[1], 'mqdefault')
+    }
+    return url
+  } catch {
+    return url
+  }
+}
+
 /** Prefer explicit thumbnail; otherwise derive from known platforms. */
 export function getThumbnailUrl(item: MediaItem): string | null {
-  if (item.thumbnail) return item.thumbnail
+  if (item.thumbnail) return normalizeYoutubeThumbnailUrl(item.thumbnail)
   if (item.source === 'youtube') {
     const id = youtubeIdFromUrl(item.url)
-    if (id) return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+    if (id) return youtubeThumbnail(id, 'mqdefault')
   }
   return null
 }

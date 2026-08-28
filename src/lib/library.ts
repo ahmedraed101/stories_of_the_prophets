@@ -1,4 +1,5 @@
 import type { LibraryState, Playlist } from '../types/content'
+import { getThumbnailUrl } from './embeds'
 import season1 from '../content/season-1.json'
 import season2 from '../content/season-2.json'
 import sirah from '../content/sirah.json'
@@ -138,11 +139,8 @@ export function removePlaylist(
 export function playlistCover(playlist: Playlist): string | null {
   for (const section of playlist.sections) {
     for (const item of section.items) {
-      if (item.thumbnail) return item.thumbnail
-      if (item.source === 'youtube') {
-        const match = item.url.match(/[?&]v=([^&]+)/)
-        if (match?.[1]) return `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg`
-      }
+      const thumb = getThumbnailUrl(item)
+      if (thumb) return thumb
     }
   }
   return null

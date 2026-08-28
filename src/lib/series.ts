@@ -1,5 +1,6 @@
 import type { LibraryState, MediaItem, Playlist } from '../types/content'
 import type { ProgressState } from '../types/content'
+import { getThumbnailUrl } from './embeds'
 import { flattenItems, getItemProgress, progressStats } from './progress'
 import { playlistById } from './catalog'
 
@@ -235,7 +236,8 @@ export function seriesCover(
 ): string | null {
   const flat = seriesFlat(library, seriesId)
   for (const { item } of flat) {
-    if (item.thumbnail) return item.thumbnail
+    const thumb = getThumbnailUrl(item)
+    if (thumb) return thumb
   }
   return null
 }
