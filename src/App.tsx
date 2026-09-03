@@ -74,14 +74,18 @@ import {
 } from './lib/pwaInstall'
 import { translations, type Language, type Text } from './lib/i18n'
 import { saveLearnerName, storedLearnerName } from './lib/learnerName'
+import {
+  initAppNavigation,
+  pushAppScreen,
+  replaceAppScreen,
+  screenFromLocation,
+  subscribeAppBackNavigation,
+  type AppScreen,
+} from './lib/routing'
 import './App.css'
 
 type Theme = 'light' | 'dark'
-type Screen =
-  | { name: 'home' }
-  | { name: 'achievements' }
-  | { name: 'series'; seriesId: string }
-  | { name: 'player'; seriesId: string; playlistId: string; itemId: string }
+type Screen = AppScreen
 
 const STORAGE_THEME = 'stories-prophets:theme'
 const STORAGE_LANGUAGE = 'stories-prophets:language'
@@ -112,7 +116,8 @@ function storedLanguage(): Language {
 
 function App() {
   const [library, setLibrary] = useState<LibraryState>(() => loadLibrary())
-  const [screen, setScreen] = useState<Screen>({ name: 'home' })
+  const [screen, setScreenState] = useState<Screen>(() => screenFromLocation())
+  const skipHistoryRef = useRef(false)
   const [progressMap, setProgressMap] = useState<Record<string, ProgressState>>(
     {},
   )
@@ -135,6 +140,24 @@ function App() {
   const [appIconReady, setAppIconReady] = useState(isAppIconReady)
   const [isInstalled, setIsInstalled] = useState(() => isStandaloneApp())
   const text = translations[language]
+
+  function setScreen(next: Screen, mode: 'push' | 'replace' = 'push') {
+    setScreenState(next)
+    if (skipHistoryRef.current) {
+      skipHistoryRef.current = false
+      return
+    }
+    if (mode === 'replace') replaceAppScreen(next)
+    else pushAppScreen(next)
+  }
+
+  function goBack() {
+    if (window.history.length > 1) {
+      window.history.back()
+      return
+    }
+    setScreen({ name: 'home' }, 'replace')
+  }
 
   const activePlaylist = useMemo(() => {
     if (screen.name !== 'player') return null
@@ -196,6 +219,36 @@ function App() {
     prefetchAppIconBlob()
     return subscribeAppIconReady(() => setAppIconReady(true))
   }, [])
+
+  useEffect(() => {
+    initAppNavigation(screenFromLocation())
+    return subscribeAppBackNavigation((next) => {
+      skipHistoryRef.current = true
+      setScreenState(next)
+      window.scrollTo(0, 0)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (screen.name === 'series') {
+      if (!seriesDefById(library, screen.seriesId)) {
+        setScreen({ name: 'home' }, 'replace')
+      }
+      return
+    }
+    if (screen.name !== 'player') return
+    if (!seriesDefById(library, screen.seriesId)) {
+      setScreen({ name: 'home' }, 'replace')
+      return
+    }
+    const playlist = playlistById(library, screen.playlistId)
+    const hasItem = playlist?.sections.some((section) =>
+      section.items.some((item) => item.id === screen.itemId),
+    )
+    if (!hasItem) {
+      setScreen({ name: 'series', seriesId: screen.seriesId }, 'replace')
+    }
+  }, [library, screen])
 
   useEffect(() => {
     if (getDeferredInstallPrompt()) setInstallReady(true)
@@ -351,7 +404,7 @@ function App() {
       return copy
     })
     if (screen.name === 'player' && screen.playlistId === playlistId) {
-      setScreen({ name: 'home' })
+      setScreen({ name: 'home' }, 'replace')
     }
   }
 
@@ -401,8 +454,8 @@ function App() {
         playlistId={activePlaylist.id}
         progress={activeProgress}
         menu={menuProps}
-        onClose={() => setScreen({ name: 'series', seriesId: screen.seriesId })}
-        onHome={() => setScreen({ name: 'home' })}
+        onClose={goBack}
+        onHome={() => setScreen({ name: 'home' }, 'replace')}
         onToggleComplete={() =>
           handleToggleComplete(
             screen.seriesId,
@@ -427,7 +480,7 @@ function App() {
           text={text}
           menu={menuProps}
           getProgress={ensureProgress}
-          onBack={() => setScreen({ name: 'home' })}
+          onBack={goBack}
           onOpenItem={(playlistId, item) =>
             openItem(screen.seriesId, playlistId, item)
           }
@@ -512,14 +565,20 @@ function App() {
           <button
             type="button"
             className={`tab-btn${screen.name === 'home' ? ' is-active' : ''}`}
-            onClick={() => setScreen({ name: 'home' })}
+            onClick={() => {
+              if (screen.name === 'home') return
+              setScreen({ name: 'home' }, 'replace')
+            }}
           >
             {text.home}
           </button>
           <button
             type="button"
             className={`tab-btn${screen.name === 'achievements' ? ' is-active' : ''}`}
-            onClick={() => setScreen({ name: 'achievements' })}
+            onClick={() => {
+              if (screen.name === 'achievements') return
+              setScreen({ name: 'achievements' })
+            }}
           >
             {text.achievementsTab}
           </button>
