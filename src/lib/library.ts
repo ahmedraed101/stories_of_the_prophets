@@ -37,7 +37,7 @@ function seedPlaylists(): Playlist[] {
       builtIn: true,
       sourceUrl:
         s3.sourceUrl ??
-        'https://www.youtube.com/playlist?list=PLbDRORmj0gydAp_9O0Vc4fq4qE3zmrTdw',
+        'https://www.youtube.com/playlist?list=PLvRGLZCElbXZRipsHunEoHCnuKUQlwozZ',
     },
   ]
 }
