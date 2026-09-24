@@ -3,6 +3,7 @@ import { getThumbnailUrl } from './embeds'
 import season1 from '../content/season-1.json'
 import season2 from '../content/season-2.json'
 import sirah from '../content/sirah.json'
+import sirahS2 from '../content/sirah-s2.json'
 
 const LIBRARY_KEY = 'stories-prophets:library:v2'
 
@@ -14,6 +15,7 @@ function seedPlaylists(): Playlist[] {
   const s1 = season1 as Playlist
   const s2 = season2 as Playlist
   const s3 = sirah as Playlist
+  const s4 = sirahS2 as Playlist
   return [
     {
       ...s1,
@@ -33,11 +35,19 @@ function seedPlaylists(): Playlist[] {
     },
     {
       ...s3,
-      title: normalizeTitle(s3.title || 'السيرة النبوية'),
+      title: normalizeTitle(s3.title || 'الحبيب (الموسم الأول)'),
       builtIn: true,
       sourceUrl:
         s3.sourceUrl ??
         'https://www.youtube.com/playlist?list=PLvRGLZCElbXZRipsHunEoHCnuKUQlwozZ',
+    },
+    {
+      ...s4,
+      title: normalizeTitle(s4.title || 'الحبيب (الموسم الثاني)'),
+      builtIn: true,
+      sourceUrl:
+        s4.sourceUrl ??
+        'https://www.youtube.com/playlist?list=PLRTR8TBZjGX3e_eb6h2IhTu9XJm1mHfro',
     },
   ]
 }

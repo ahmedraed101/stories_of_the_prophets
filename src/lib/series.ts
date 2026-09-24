@@ -28,9 +28,9 @@ const BUILTIN_SERIES: SeriesDef[] = [
     id: 'prophetic-sirah',
     titleAr: 'السيرة النبوية',
     titleEn: 'The Prophetic Biography',
-    subtitleAr: 'برنامج الحبيب — الشيخ نبيل العوضي',
-    subtitleEn: 'Al-Habib series — Sheikh Nabil Al-Awadi',
-    playlistIds: ['prophetic-sirah'],
+    subtitleAr: 'الموسم الأول والثاني — برنامج الحبيب — الشيخ نبيل العوضي',
+    subtitleEn: 'Seasons 1 & 2 — Al-Habib — Sheikh Nabil Al-Awadi',
+    playlistIds: ['prophetic-sirah', 'prophetic-sirah-s2'],
     builtIn: true,
   },
 ]
